@@ -8,10 +8,6 @@ A logging framework for Node/TypeScript that shares one mental model and one
 JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/logquill/)
 (repo: `logquill-python`).
 
-> **Status:** Phase 0 (repo & build tooling) is scaffolded. The public
-> logging API — `Logger`, levels, transports, formatters, plugins — lands in
-> the phases that follow.
-
 ## Install
 
 ```sh

@@ -2,7 +2,7 @@ name: Publish to npm
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 jobs:
   publish:
@@ -18,10 +18,31 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - run: npm ci
-      - run: npm install -g npm@latest # ensure >=11.5.1 for OIDC support
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm publish --access public
+
+      - name: Check if package.json version is unpublished
+        id: version
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED_VERSION=$(npm view logquill version 2>/dev/null || echo "none")
+          echo "local package.json version: $LOCAL_VERSION"
+          echo "latest published version:   $PUBLISHED_VERSION"
+          if [ "$LOCAL_VERSION" != "$PUBLISHED_VERSION" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm ci
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm install -g npm@latest # ensure >=11.5.1 for OIDC support
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm run lint
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm run typecheck
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm test
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm run build
+      - if: steps.version.outputs.should_publish == 'true'
+        run: npm publish --access public
