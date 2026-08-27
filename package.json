@@ -32,9 +32,15 @@
   "keywords": [
     "logging",
     "logger",
-    "structured-logging"
+    "structured-logging",
+    "json-logging",
+    "observability",
+    "typescript",
+    "esm",
+    "cjs",
+    "node"
   ],
-  "author": "",
+  "author": "Nikhil Arora <290192niks@gmail.com>",
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
