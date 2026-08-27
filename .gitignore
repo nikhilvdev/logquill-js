@@ -1,0 +1,31 @@
+# ── Secrets & local env — never commit ──────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/secrets/
+.npmrc.local
+
+# ── JS / TypeScript ─────────────────────────────────────────────────
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.eslintcache
+.changeset/*.log
+
+# ── Local-only project instructions ───────────────────────────────────
+CLAUDE.md
+
+# ── Editors / OS cruft ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# ── Logs produced during local runs/tests ────────────────────────────
+*.log
+*.log.[0-9]
