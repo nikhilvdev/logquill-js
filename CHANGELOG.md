@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `release.yml` now triggers on every push to `main` (i.e. on PR merge)
+  instead of on `v*` tags, publishing only when `package.json`'s `version`
+  differs from what's live on npm.
+
 ### Added
 
 - MIT `LICENSE` file, README badges (CI, npm version, license), expanded
