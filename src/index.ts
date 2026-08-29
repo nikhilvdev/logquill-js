@@ -9,6 +9,14 @@ export type { Formatter } from "./formatter.js";
 
 export type { Plugin } from "./plugin.js";
 
+export { ContextPlugin } from "./context-plugin.js";
+
+export { DEFAULT_REDACTED_KEYS, RedactPlugin } from "./redact-plugin.js";
+export type { RedactPluginOptions } from "./redact-plugin.js";
+
+export { SamplingPlugin } from "./sampling-plugin.js";
+export type { SamplingPluginOptions } from "./sampling-plugin.js";
+
 export { CollectingTransport, Transport } from "./transport.js";
 
 export { ConsoleTransport } from "./console-transport.js";
@@ -23,4 +31,4 @@ export type { HTTPTransportOptions, Sender } from "./http-transport.js";
 export { Logger } from "./logger.js";
 export type { LoggerOptions } from "./logger.js";
 
-export const VERSION = "0.1.1";
+export const VERSION = "0.1.2";

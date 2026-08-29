@@ -4,7 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-29
+
 ### Added
+
+- Plugins: `ContextPlugin` (merges fixed key/value pairs into every record's
+  `meta`; call-site `meta` wins on key collisions), `RedactPlugin` (replaces
+  sensitive `meta` values, matched by key case-insensitively, with a
+  placeholder — defaults to `password`/`token`/`secret`/`api_key`/
+  `authorization`), and `SamplingPlugin` (keeps roughly `rate` of records,
+  dropping the rest; `rate` outside `[0, 1]` throws). All three implement
+  the `Plugin` hook interface and are usable via `.use()`. Matches
+  `logquill-python`'s behavior test-for-test.
 
 - Transports: `ConsoleTransport` (colorized via ANSI, respects `NO_COLOR`,
   writes via `console.log`/`console.error` so it works unmodified in a

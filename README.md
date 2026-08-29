@@ -10,9 +10,10 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 (repo: `logquill-python`).
 
 Status: pre-release, under active development. The core `Logger`, level
-filtering, the plugin pipeline, `JSONFormatter`, and the built-in transports
-are implemented; non-blocking async dispatch is not yet — see
-`CHANGELOG.md` for what's landed so far.
+filtering, the plugin pipeline (with `ContextPlugin`/`RedactPlugin`/
+`SamplingPlugin` built in), `JSONFormatter`, and the built-in transports are
+implemented; non-blocking async dispatch is not yet — see `CHANGELOG.md`
+for what's landed so far.
 
 ## Features
 
@@ -20,11 +21,11 @@ are implemented; non-blocking async dispatch is not yet — see
 - **Cross-language record shape** — identical JSON shape and level names/weights as [`logquill` on PyPI](https://pypi.org/project/logquill/)
 - **Pluggable formatters** — `JSONFormatter` out of the box; implement `format(record) -> string` for your own
 - **Pluggable transports** — `ConsoleTransport` (colorized, respects `NO_COLOR`, isomorphic), `FileTransport` (rotation), `HTTPTransport` (batched, `fetch`-based); write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
-- **Plugin pipeline** — `beforeLog`/`afterLog`/`onError` hooks; a throwing plugin can't crash logging
+- **Plugin pipeline** — `ContextPlugin`, `RedactPlugin`, `SamplingPlugin` out of the box; `beforeLog`/`afterLog`/`onError` hooks; a throwing plugin can't crash logging
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
-- *(planned)* `ContextPlugin`/`RedactPlugin`/`SamplingPlugin`, non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
+- *(planned)* non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
 
 ## Install
 
@@ -128,6 +129,28 @@ const logger2 = new Logger("app", { transports: [sink] });
 logger2.info("hello");
 console.log(sink.formatted); // ['{"timestamp":...,"message":"hello",...}']
 ```
+
+## Plugins
+
+Plugins hook into the pipeline around each log call: `beforeLog(record)` can
+transform a record or return `null` to drop it, `afterLog(record)` runs once
+it's been dispatched to every transport, and `onError(error, record)` catches
+anything a plugin's own hooks throw — a broken plugin can't take down logging.
+
+```ts
+import { ContextPlugin, Logger, RedactPlugin, SamplingPlugin } from "logquill";
+
+const logger = new Logger("app");
+logger.use(new ContextPlugin({ service: "api", env: "prod" })); // merged into every record's meta
+logger.use(new RedactPlugin({ keys: ["password", "token"] })); // replaces matching meta values
+logger.use(new SamplingPlugin(0.1)); // keep ~10% of records that reach this point
+
+logger.info("login attempt", { user_id: 42, password: "hunter2" });
+// meta: { service: "api", env: "prod", user_id: 42, password: "***" }
+// (unless this call was one of the ~90% sampling dropped, in which case it's null)
+```
+
+Write your own by implementing `Plugin`; every hook is optional.
 
 ## Development
 
