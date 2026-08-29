@@ -110,6 +110,10 @@ npm run typecheck   # tsc --noEmit
 npm run coverage    # vitest run --coverage
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR workflow, the
+[Code of Conduct](CODE_OF_CONDUCT.md) for community standards, and
+[SECURITY.md](.github/SECURITY.md) for how to report a vulnerability.
+
 ## License
 
 MIT

@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an addition or change to logquill
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that logquill doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The API or behavior you'd like to see. A short code sketch helps.
+      render: typescript
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Cross-language contract
+      description: >-
+        logquill ships as a pair with `logquill` on PyPI and both must agree
+        on levels, logger methods, the record shape, and the transport/plugin
+        contracts. Flag it if your request touches that.
+      options:
+        - label: This would change something both packages need to agree on (levels, record shape, transport/plugin contract, config shape)
+          required: false
