@@ -11,6 +11,15 @@ export type { Plugin } from "./plugin.js";
 
 export { CollectingTransport, Transport } from "./transport.js";
 
+export { ConsoleTransport } from "./console-transport.js";
+export type { ConsoleLike, ConsoleTransportOptions } from "./console-transport.js";
+
+export { FileTransport } from "./file-transport.js";
+export type { FileTransportOptions } from "./file-transport.js";
+
+export { HTTPTransport } from "./http-transport.js";
+export type { HTTPTransportOptions, Sender } from "./http-transport.js";
+
 export { Logger } from "./logger.js";
 export type { LoggerOptions } from "./logger.js";
 

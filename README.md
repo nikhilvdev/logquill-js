@@ -10,21 +10,21 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 (repo: `logquill-python`).
 
 Status: pre-release, under active development. The core `Logger`, level
-filtering, the plugin pipeline, and `JSONFormatter` are implemented;
-built-in transports (console/file/HTTP) and non-blocking async dispatch are
-not yet — see `CHANGELOG.md` for what's landed so far.
+filtering, the plugin pipeline, `JSONFormatter`, and the built-in transports
+are implemented; non-blocking async dispatch is not yet — see
+`CHANGELOG.md` for what's landed so far.
 
 ## Features
 
 - **Structured by default** — every call carries a `meta` object, not just a message string
 - **Cross-language record shape** — identical JSON shape and level names/weights as [`logquill` on PyPI](https://pypi.org/project/logquill/)
 - **Pluggable formatters** — `JSONFormatter` out of the box; implement `format(record) -> string` for your own
-- **Pluggable transports** — write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
+- **Pluggable transports** — `ConsoleTransport` (colorized, respects `NO_COLOR`, isomorphic), `FileTransport` (rotation), `HTTPTransport` (batched, `fetch`-based); write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
 - **Plugin pipeline** — `beforeLog`/`afterLog`/`onError` hooks; a throwing plugin can't crash logging
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
-- *(planned)* built-in `ConsoleTransport`/`FileTransport`/`HTTPTransport`, `ContextPlugin`/`RedactPlugin`/`SamplingPlugin`, non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
+- *(planned)* `ContextPlugin`/`RedactPlugin`/`SamplingPlugin`, non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
 
 ## Install
 
@@ -82,11 +82,43 @@ logger.use({
 });
 ```
 
-Attach transports (a `Transport` subclass implementing `write(formatted,
-record)`) to actually dispatch records somewhere — concrete built-in
-transports (`ConsoleTransport`, `FileTransport`, `HTTPTransport`) are still
-to come; `CollectingTransport` is included now as an in-memory sink,
-handy for tests:
+Works from both ESM (`import`) and CommonJS (`require`) — the package ships
+a dual build with full TypeScript types.
+
+## Transports
+
+Attach transports to a `Logger` to actually write records somewhere. Each
+record is dispatched to every attached transport synchronously
+(non-blocking dispatch isn't implemented yet):
+
+```ts
+import { ConsoleTransport, FileTransport, HTTPTransport, Logger } from "logquill";
+
+const logger = new Logger("app", {
+  transports: [
+    new ConsoleTransport(), // console.log; ERROR/FATAL to console.error, colorized
+    new FileTransport("app.log", { maxBytes: 10 * 1024 * 1024, backupCount: 5 }),
+    new HTTPTransport("https://logs.example.com/ingest", { batchSize: 50 }),
+  ],
+});
+
+logger.info("user signed up", { user_id: 42 });
+logger.close(); // flushes the HTTPTransport's pending batch, closes the FileTransport's fd
+```
+
+`ConsoleTransport` writes via `console.log`/`console.error` (not
+`process.stdout`/`stderr`), so it works unmodified in a browser bundle.
+Colorizing defaults to on, unless the [`NO_COLOR`](https://no-color.org)
+environment variable is set. `FileTransport` rotates the file once it
+exceeds `maxBytes`, keeping `backupCount` numbered backups (`.1`, `.2`, …).
+`HTTPTransport` batches formatted lines and POSTs them as
+newline-delimited JSON once `batchSize` is reached, or on `.close()`/
+`.flush()`; pass `sender` to swap in a fake for tests or a different
+backend.
+
+Write your own by subclassing `Transport` (implement `write(formatted,
+record)`; `format()` and `close()` have defaults), or use
+`CollectingTransport` — an in-memory sink included for tests:
 
 ```ts
 import { CollectingTransport } from "logquill";
@@ -96,9 +128,6 @@ const logger2 = new Logger("app", { transports: [sink] });
 logger2.info("hello");
 console.log(sink.formatted); // ['{"timestamp":...,"message":"hello",...}']
 ```
-
-Works from both ESM (`import`) and CommonJS (`require`) — the package ships
-a dual build with full TypeScript types.
 
 ## Development
 
