@@ -1,0 +1,1 @@
+{"timestamp":"2026-08-29T07:12:55.968Z","level":"INFO","logger":"app.example","message":"user signed up","meta":{"user_id":42,"plan":"pro"}}
