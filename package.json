@@ -1,6 +1,6 @@
 {
   "name": "logquill",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A logging framework with an identical mental model and JSON log shape across Node/TypeScript and Python.",
   "license": "MIT",
   "type": "module",
