@@ -130,6 +130,222 @@ logger2.info("hello");
 console.log(sink.formatted); // ['{"timestamp":...,"message":"hello",...}']
 ```
 
+### SQL transports
+
+`SQLiteTransport`, `PostgresTransport`, and `MySQLTransport` all extend
+`BaseSQLTransport`, which owns a fixed `logs` table schema (`timestamp`,
+`level`, `logger`, `message`, `meta`, plus `runId`/`spanId`/`parentSpanId`/
+`traceId` for future trace correlation) and always batches inserts into one
+parameterized multi-row `INSERT` — never one query per log call. Each
+driver (`better-sqlite3`, `pg`, `mysql2`) is an **optional peer
+dependency** — install only the one you use, or inject a pre-built
+client/pool directly (handy for tests). Production schema/migrations are
+your responsibility; pass `ensureSchema: true` to auto-create the table for
+local dev/test only.
+
+```ts
+import { Logger, SQLiteTransport } from "logquill";
+
+const transport = new SQLiteTransport({ filename: "app.db", ensureSchema: true });
+const logger = new Logger("app", { transports: [transport] });
+
+logger.info("user signed up", { userId: "u_123" });
+await new Promise((r) => setImmediate(r)); // let the batch flush in this example
+logger.close();
+```
+
+```ts
+import { Logger, PostgresTransport } from "logquill";
+// npm install pg
+
+const transport = new PostgresTransport({ connectionString: process.env.DATABASE_URL, maxRecords: 100 });
+const logger = new Logger("app", { transports: [transport] });
+
+logger.info("user signed up", { userId: "u_123" });
+logger.close();
+```
+
+```ts
+import { Logger, MySQLTransport } from "logquill";
+// npm install mysql2
+
+const transport = new MySQLTransport({ connectionString: "mysql://user:pass@localhost:3306/app" });
+const logger = new Logger("app", { transports: [transport] });
+
+logger.info("user signed up", { userId: "u_123" });
+logger.close();
+```
+
+### NoSQL transports
+
+`MongoDBTransport`, `DynamoDBTransport`, and `RedisTransport` are all
+optional peer dependencies too — install only the driver you use, or
+inject a pre-built client/collection directly.
+
+```ts
+import { Logger, MongoDBTransport } from "logquill";
+// npm install mongodb
+
+const transport = new MongoDBTransport({
+  connectionString: "mongodb://localhost:27017",
+  database: "app",
+  collectionName: "logs",
+});
+const logger = new Logger("app", { transports: [transport] });
+logger.info("user signed up", { userId: "u_123" });
+```
+
+```ts
+import { Logger, DynamoDBTransport } from "logquill";
+// npm install @aws-sdk/client-dynamodb
+
+// Partition key is meta.runId (falling back to meta.traceId, then the
+// logger name); sort key is `timestamp`. Batches are chunked to respect
+// BatchWriteItem's 25-item cap.
+const transport = new DynamoDBTransport({ tableName: "app-logs", region: "us-east-1" });
+const logger = new Logger("app", { transports: [transport] });
+logger.info("order placed", { runId: "run-42", orderId: "o_9" });
+```
+
+```ts
+import { Logger, RedisTransport } from "logquill";
+// npm install redis
+
+// Writes to a Redis Stream via XADD — a fast local buffer/tail, not a
+// durable system of record.
+const transport = new RedisTransport({ url: "redis://localhost:6379", stream: "app:logs" });
+const logger = new Logger("app", { transports: [transport] });
+logger.info("cache miss", { key: "user:42" });
+```
+
+### Message queue transports
+
+`KafkaTransport`, `RabbitMQTransport`, `SQSTransport`, and `PubSubTransport`
+all extend `BaseQueueTransport`, which owns the "always batch, never
+publish one message per log call" contract — each only implements
+`publishBatch()` against its own driver's batch-publish API. Every
+transport takes a `topic` option naming the destination (a Kafka topic, a
+RabbitMQ queue, an SQS queue URL, or a Pub/Sub topic, respectively). Each
+driver is an optional peer dependency — install only the one you use, or
+inject a pre-built client.
+
+```ts
+import { Logger, KafkaTransport } from "logquill";
+// npm install kafkajs
+
+// Each message is keyed by meta.runId (falling back to meta.traceId), so
+// kafkajs's default partitioner keeps one run/trace on the same partition.
+const transport = new KafkaTransport({ topic: "app-logs", brokers: ["localhost:9092"] });
+const logger = new Logger("app", { transports: [transport] });
+logger.info("order placed", { runId: "run-42", orderId: "o-123" });
+logger.close();
+```
+
+```ts
+import { Logger, RabbitMQTransport } from "logquill";
+// npm install amqplib
+
+const transport = new RabbitMQTransport({ topic: "app-logs", url: "amqp://localhost" });
+const logger = new Logger("app", { transports: [transport] });
+logger.warn("low disk space", { host: "worker-3" });
+```
+
+```ts
+import { Logger, SQSTransport } from "logquill";
+// npm install @aws-sdk/client-sqs
+
+// SendMessageBatch caps a request at 10 messages; larger flushes are
+// automatically chunked.
+const transport = new SQSTransport({
+  topic: "https://sqs.us-east-1.amazonaws.com/123456789012/app-logs",
+  region: "us-east-1",
+});
+const logger = new Logger("app", { transports: [transport] });
+logger.error("payment failed", { orderId: "o-123" });
+```
+
+```ts
+import { Logger, PubSubTransport } from "logquill";
+// npm install @google-cloud/pubsub
+
+const transport = new PubSubTransport({ topic: "app-logs", projectId: "my-gcp-project" });
+const logger = new Logger("app", { transports: [transport] });
+logger.info("job completed", { jobId: "j-9" });
+```
+
+### Cloud-native transports
+
+`CloudWatchTransport`, `CloudLoggingTransport` (GCP), and
+`AppInsightsTransport` (Azure) are SDK-based — each driver is an optional
+peer dependency, or inject a pre-built client. `DatadogTransport`,
+`ElasticsearchTransport`, and `NewRelicTransport` are plain `fetch`-based
+and need no extra dependency at all; pass `sender` to swap in a fake for
+tests or an alternate backend.
+
+```ts
+import { Logger, CloudWatchTransport } from "logquill";
+// npm install @aws-sdk/client-cloudwatch-logs
+
+const logger = new Logger("app", {
+  transports: [new CloudWatchTransport({ logGroupName: "/my-app", logStreamName: "prod", region: "us-east-1" })],
+});
+logger.info("service started");
+logger.close(); // flushes buffered log events
+```
+
+```ts
+import { Logger, CloudLoggingTransport } from "logquill";
+// npm install @google-cloud/logging
+
+const logger = new Logger("app", {
+  transports: [new CloudLoggingTransport({ projectId: "my-gcp-project", logName: "my-app" })],
+});
+logger.info("service started");
+```
+
+```ts
+import { Logger, AppInsightsTransport } from "logquill";
+// npm install applicationinsights
+
+const logger = new Logger("app", {
+  transports: [new AppInsightsTransport({ connectionString: process.env.APPINSIGHTS_CONNECTION_STRING })],
+});
+logger.info("service started");
+```
+
+```ts
+import { Logger, DatadogTransport } from "logquill";
+
+const logger = new Logger("app", {
+  transports: [new DatadogTransport({ apiKey: process.env.DD_API_KEY!, site: "datadoghq.eu" })],
+});
+logger.info("service started");
+```
+
+```ts
+import { Logger, ElasticsearchTransport } from "logquill";
+
+const logger = new Logger("app", {
+  transports: [
+    new ElasticsearchTransport({ node: "https://localhost:9200", index: "app-logs", apiKey: process.env.ES_API_KEY }),
+  ],
+});
+logger.info("service started");
+```
+
+```ts
+import { Logger, NewRelicTransport } from "logquill";
+
+// `region` selects the ingest host ("US" default, or "EU") — set it
+// explicitly for EU accounts, since a mismatched region is rejected.
+// Batches are gzip-compressed, and a 429 pauses further sends until the
+// `Retry-After` window elapses.
+const logger = new Logger("app", {
+  transports: [new NewRelicTransport({ licenseKey: process.env.NEW_RELIC_LICENSE_KEY!, region: "EU" })],
+});
+logger.info("service started");
+```
+
 ## Plugins
 
 Plugins hook into the pipeline around each log call: `beforeLog(record)` can

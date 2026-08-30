@@ -4,6 +4,85 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+Database, queue, and cloud-native transports — a full matrix of new
+sinks, each with a runnable example in `README.md`. Every real driver
+(`pg`, `mysql2`, `better-sqlite3`, `mongodb`, `@aws-sdk/*`, `redis`,
+`kafkajs`, `amqplib`, `@google-cloud/*`, `applicationinsights`) is an
+**optional peer dependency** — install only the one you use, or inject a
+pre-built client for tests or alternate setups.
+
+**SQL** — `BatchingTransport`, a shared base for every batching sink
+transport that bounds its buffer by both record count and estimated byte
+size, flushing once either limit is hit — never grows unboundedly under a
+sustained burst. `BaseSQLTransport` builds on it with a fixed `logs` table
+schema (`timestamp`/`level`/`logger`/`message`/`meta`, plus
+`runId`/`spanId`/`parentSpanId`/`traceId` for upcoming trace correlation
+work) and always-batched inserts.
+
+- `SQLiteTransport`: zero-setup SQL sink via the optional `better-sqlite3`
+  peer dependency — no server process, works against a file or `:memory:`.
+- `PostgresTransport`: batches formatted records into one parameterized
+  multi-row `INSERT` per flush via the optional `pg` peer dependency, with
+  dialect-correct `SERIAL`/`JSONB` schema for `ensureSchema: true` dev/test
+  use.
+- `MySQLTransport`: batches formatted records into one parameterized
+  multi-row `INSERT` per flush via the optional `mysql2` peer dependency,
+  with dialect-correct `AUTO_INCREMENT`/`JSON` schema for `ensureSchema:
+  true` dev/test use.
+- Production schema/migrations remain the caller's responsibility, per
+  LogQuill's existing stance on auto-created schema.
+
+**NoSQL**
+
+- `MongoDBTransport` batches log records into `insertMany()` calls against
+  a MongoDB collection, mapping each record 1:1 to a document; `mongodb`
+  is an optional peer dependency, or inject a pre-built `collection`.
+- `DynamoDBTransport` writes batches to DynamoDB via `BatchWriteItem`-style
+  calls chunked to the API's 25-item cap, partitioning by `meta.runId`/
+  `meta.traceId` (falling back to the logger name) with `timestamp` as the
+  sort key; `@aws-sdk/client-dynamodb` is an optional peer dependency, or
+  inject a `client`.
+- `RedisTransport` appends each record to a Redis Stream via `XADD` — a
+  fast local buffer/tail, not a durable store; `redis` is an optional peer
+  dependency, or inject an already-connected `client`.
+
+**Message queues** — `BaseQueueTransport`, a shared base for every queue
+sink, enforcing "always batch, never publish one message per log call."
+
+- `KafkaTransport` publishes batches to Kafka via `kafkajs`, keyed by
+  `runId`/`traceId` for per-trace partition ordering.
+- `RabbitMQTransport` publishes to RabbitMQ via `amqplib`.
+- `SQSTransport` publishes to SQS via batched `SendMessageBatch` calls,
+  correctly capped at 10 messages per request.
+- `PubSubTransport` publishes to GCP Pub/Sub via `@google-cloud/pubsub`.
+
+**Cloud-native**
+
+- `CloudWatchTransport` ships batched records to AWS CloudWatch Logs via
+  the AWS SDK v3 (`@aws-sdk/client-cloudwatch-logs`, optional peer
+  dependency), sorting events by timestamp before each `PutLogEvents` call.
+- `CloudLoggingTransport` ships batched records to Google Cloud Logging via
+  `@google-cloud/logging` (optional peer dependency), mapping `level` onto
+  Cloud Logging's `severity` scale.
+- `AppInsightsTransport` ships records to Azure Application Insights as
+  trace telemetry via `applicationinsights` (optional peer dependency),
+  batching at LogQuill's buffering level and looping single `trackTrace()`
+  calls per flush, since the SDK has no network-level batch API.
+- `DatadogTransport` batches records and POSTs them as JSON to Datadog's
+  Logs intake API via `fetch`, with a configurable `site` region
+  (`datadoghq.com`/`datadoghq.eu`/etc) — no new dependency.
+- `ElasticsearchTransport` batches records and POSTs them to
+  Elasticsearch's `_bulk` API as newline-delimited action+source pairs via
+  `fetch` — no client dependency.
+- `NewRelicTransport` batches and gzips records before POSTing to New
+  Relic's Log API, with a configurable US/EU region, the license key in
+  `Api-Key`, `meta.eventType` stripped per New Relic's reserved-field rule,
+  and 429 handling that reads `Retry-After` (seconds or HTTP-date) and
+  pauses further sends until it elapses instead of retrying into a live
+  rate limit.
+
 ## [0.1.2] - 2026-08-29
 
 ### Added
