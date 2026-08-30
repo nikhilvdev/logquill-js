@@ -120,4 +120,4 @@ export type { HTTPTransportOptions, Sender } from "./transports/http-transport.j
 export { Logger } from "./core/logger.js";
 export type { LoggerOptions } from "./core/logger.js";
 
-export const VERSION = "0.1.2";
+export const VERSION = "0.2.0";

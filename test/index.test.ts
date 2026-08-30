@@ -3,7 +3,7 @@ import { CollectingTransport, JSONFormatter, Level, Logger, VERSION, parseLevel 
 
 describe("package entry point", () => {
   it("exports a version string", () => {
-    expect(VERSION).toBe("0.1.2");
+    expect(VERSION).toBe("0.2.0");
   });
 
   it("exports the core public API", () => {
