@@ -4,8 +4,6 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-08-30
-
 ### Added
 
 Database, queue, and cloud-native transports — a full matrix of new
