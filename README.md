@@ -11,21 +11,35 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 
 Status: pre-release, under active development. The core `Logger`, level
 filtering, the plugin pipeline (with `ContextPlugin`/`RedactPlugin`/
-`SamplingPlugin` built in), `JSONFormatter`, and the built-in transports are
-implemented; non-blocking async dispatch is not yet — see `CHANGELOG.md`
-for what's landed so far.
+`SamplingPlugin` built in), `JSONFormatter`, and a broad transport catalog —
+console/file/HTTP, SQL, NoSQL, message queues, and cloud-native log
+platforms — are implemented; non-blocking async dispatch is not yet — see
+`CHANGELOG.md` for what's landed so far.
 
 ## Features
 
 - **Structured by default** — every call carries a `meta` object, not just a message string
 - **Cross-language record shape** — identical JSON shape and level names/weights as [`logquill` on PyPI](https://pypi.org/project/logquill/)
 - **Pluggable formatters** — `JSONFormatter` out of the box; implement `format(record) -> string` for your own
-- **Pluggable transports** — `ConsoleTransport` (colorized, respects `NO_COLOR`, isomorphic), `FileTransport` (rotation), `HTTPTransport` (batched, `fetch`-based); write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
+- **A transport for wherever your logs need to go** — console, file, and HTTP out of the box, plus SQL (SQLite/Postgres/MySQL), NoSQL (MongoDB/DynamoDB/Redis), message queues (Kafka/RabbitMQ/SQS/Pub-Sub), and cloud-native platforms (CloudWatch/Cloud Logging/App Insights/Datadog/Elasticsearch/New Relic) — see [Transports](#transports). Every backend driver is an **optional peer dependency**: install only the one you use, or inject a pre-built client. Write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
 - **Plugin pipeline** — `ContextPlugin`, `RedactPlugin`, `SamplingPlugin` out of the box; `beforeLog`/`afterLog`/`onError` hooks; a throwing plugin can't crash logging
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
 - *(planned)* non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
+
+## Contents
+
+- [Install](#install)
+- [Usage](#usage)
+- [Transports](#transports)
+  - [SQL transports](#sql-transports)
+  - [NoSQL transports](#nosql-transports)
+  - [Message queue transports](#message-queue-transports)
+  - [Cloud-native transports](#cloud-native-transports)
+- [Plugins](#plugins)
+- [Development](#development)
+- [License](#license)
 
 ## Install
 
@@ -90,7 +104,36 @@ a dual build with full TypeScript types.
 
 Attach transports to a `Logger` to actually write records somewhere. Each
 record is dispatched to every attached transport synchronously
-(non-blocking dispatch isn't implemented yet):
+(non-blocking dispatch isn't implemented yet). Every backend driver below
+is an **optional peer dependency** — `npm install` only pulls in what you
+actually import; nothing is installed on your behalf.
+
+| Transport | Backend | Peer dependency | Setup |
+|---|---|---|---|
+| `ConsoleTransport` | stdout/stderr via `console.*` | *(none)* | zero-setup, isomorphic |
+| `FileTransport` | local file, with rotation | *(none)* | zero-setup |
+| `HTTPTransport` | any HTTP log endpoint | *(none, uses `fetch`)* | zero-setup |
+| `SQLiteTransport` | SQLite | `better-sqlite3` | zero-setup (file or `:memory:`) |
+| `PostgresTransport` | PostgreSQL | `pg` | needs a server |
+| `MySQLTransport` | MySQL | `mysql2` | needs a server |
+| `MongoDBTransport` | MongoDB | `mongodb` | needs a server |
+| `DynamoDBTransport` | AWS DynamoDB | `@aws-sdk/client-dynamodb` | needs an AWS account |
+| `RedisTransport` | Redis Streams | `redis` | needs a server |
+| `KafkaTransport` | Kafka | `kafkajs` | needs a broker |
+| `RabbitMQTransport` | RabbitMQ | `amqplib` | needs a broker |
+| `SQSTransport` | AWS SQS | `@aws-sdk/client-sqs` | needs an AWS account |
+| `PubSubTransport` | GCP Pub/Sub | `@google-cloud/pubsub` | needs a GCP account |
+| `CloudWatchTransport` | AWS CloudWatch Logs | `@aws-sdk/client-cloudwatch-logs` | needs an AWS account |
+| `CloudLoggingTransport` | GCP Cloud Logging | `@google-cloud/logging` | needs a GCP account |
+| `AppInsightsTransport` | Azure Application Insights | `applicationinsights` | needs an Azure account |
+| `DatadogTransport` | Datadog Logs | *(none, uses `fetch`)* | needs a Datadog account |
+| `ElasticsearchTransport` | Elasticsearch `_bulk` API | *(none, uses `fetch`)* | needs a cluster |
+| `NewRelicTransport` | New Relic Log API | *(none, uses `fetch`)* | needs a New Relic account |
+
+Every transport also accepts an injected client/sender in place of its
+default driver — the pattern every example below and every transport's own
+test suite uses, so you never need a live backend just to test your
+logging setup.
 
 ```ts
 import { ConsoleTransport, FileTransport, HTTPTransport, Logger } from "logquill";
