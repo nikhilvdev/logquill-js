@@ -21,6 +21,58 @@
   "engines": {
     "node": ">=18"
   },
+  "peerDependencies": {
+    "pg": "^8.11.0",
+    "mysql2": "^3.9.0",
+    "mongodb": "^6.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "redis": "^4.6.0 || ^5.0.0",
+    "kafkajs": "^2.2.0",
+    "amqplib": "^0.10.0",
+    "@aws-sdk/client-sqs": "^3.600.0",
+    "@google-cloud/pubsub": "^4.0.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.0.0",
+    "@google-cloud/logging": "^11.0.0",
+    "applicationinsights": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "@aws-sdk/client-dynamodb": {
+      "optional": true
+    },
+    "redis": {
+      "optional": true
+    },
+    "kafkajs": {
+      "optional": true
+    },
+    "amqplib": {
+      "optional": true
+    },
+    "@aws-sdk/client-sqs": {
+      "optional": true
+    },
+    "@google-cloud/pubsub": {
+      "optional": true
+    },
+    "@aws-sdk/client-cloudwatch-logs": {
+      "optional": true
+    },
+    "@google-cloud/logging": {
+      "optional": true
+    },
+    "applicationinsights": {
+      "optional": true
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nikhilvdev/logquill-js.git"
