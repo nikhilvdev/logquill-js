@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-31
+
+### Added
+
+- `.use()` now accepts a plain `beforeLog`-style function in place of a
+  `Plugin`, wrapped internally as `FunctionPlugin` — Express/Koa-style
+  middleware ergonomics, matching `logquill-python`'s equivalent.
+- `SamplingPlugin` gained tail-based elevation: pass `transports` and a
+  sampled-out record is buffered under its `meta.traceId` instead of
+  dropped; if a later record on that trace reaches `elevateAt` (default
+  `ERROR`), the whole trace flushes, buffered records included. Buffering
+  is bounded by both `maxBufferedRecords` and `maxTraces`. Without
+  `transports`, behavior is unchanged (plain rate-based sampling).
+- `PIIRedactPlugin`: regex-based PII redaction over `meta` values (not
+  just keys) — emails, SSNs, credit-card numbers, and phone numbers,
+  recursively through nested objects/arrays, with depth- and
+  cycle-bounded recursion. Complements `RedactPlugin`'s exact-key
+  matching. Pass custom `patterns` to extend or replace the defaults.
+- `TamperEvidentPlugin`: hash-chains every record (`meta.hash`/
+  `meta.prevHash`, SHA-256) so an edited, removed, or reordered line in a
+  written log is detectable after the fact via the static
+  `verifyChain()`. Opt-in — hashing has a real per-record CPU cost.
+- `AlertingPlugin`: base for plugins that fire an external alert on
+  ERROR/FATAL (or any configurable `threshold`) without blocking the log
+  call that triggered it, with dedupe-window collapsing of repeated
+  matches into one follow-up alert reporting the total occurrence count.
+  Tracking is bounded by `maxTrackedKeys`.
+- `SlackAlertPlugin` and `PagerDutyAlertPlugin`: `fetch`-based, no extra
+  dependency.
+- `EmailAlertPlugin`: SMTP via the optional `nodemailer` peer dependency,
+  or inject a `sender` for tests or an alternate backend.
+
 ## [0.2.0] - 2026-08-30
 
 ### Added

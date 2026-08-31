@@ -1,6 +1,6 @@
 {
   "name": "logquill",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A logging framework with an identical mental model and JSON log shape across Node/TypeScript and Python.",
   "license": "MIT",
   "type": "module",
@@ -33,7 +33,8 @@
     "@google-cloud/pubsub": "^4.0.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.0.0",
     "@google-cloud/logging": "^11.0.0",
-    "applicationinsights": "^3.0.0"
+    "applicationinsights": "^3.0.0",
+    "nodemailer": "^6.9.0"
   },
   "peerDependenciesMeta": {
     "pg": {
@@ -70,6 +71,9 @@
       "optional": true
     },
     "applicationinsights": {
+      "optional": true
+    },
+    "nodemailer": {
       "optional": true
     }
   },
