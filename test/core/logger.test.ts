@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CollectingTransport, Level, Logger, type Plugin } from "../../src/index.js";
+import { CollectingTransport, Level, Logger, type LogRecord, type Plugin } from "../../src/index.js";
 
 describe("Logger", () => {
   it("produces a well-formed record", () => {
@@ -151,5 +151,34 @@ describe("Logger", () => {
     const logger = new Logger("app", { meta: { a: 1 } });
     const record = logger.info("x", { a: 2 });
     expect(record?.meta).toEqual({ a: 2 });
+  });
+
+  it("use() accepts a plain function and behaves identically to an equivalent Plugin", () => {
+    const upperCase = (record: LogRecord) => ({
+      ...record,
+      message: record.message.toUpperCase(),
+    });
+    const equivalentPlugin: Plugin = { beforeLog: upperCase };
+
+    const viaFunction = new Logger("app.test").use(upperCase).info("hello");
+    const viaPlugin = new Logger("app.test").use(equivalentPlugin).info("hello");
+
+    expect(viaFunction?.message).toBe("HELLO");
+    expect(viaFunction?.message).toBe(viaPlugin?.message);
+  });
+
+  it("a function passed to use() can drop a record by returning null", () => {
+    const transport = new CollectingTransport();
+    const logger = new Logger("app.test", { transports: [transport] });
+    logger.use(() => null);
+
+    expect(logger.info("dropped")).toBeNull();
+    expect(transport.records).toHaveLength(0);
+  });
+
+  it("a function passed via the constructor's plugins array is wrapped the same way", () => {
+    const logger = new Logger("app.test", { plugins: [(record) => ({ ...record, message: "replaced" })] });
+
+    expect(logger.info("original")?.message).toBe("replaced");
   });
 });

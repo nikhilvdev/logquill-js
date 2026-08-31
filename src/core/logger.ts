@@ -1,12 +1,12 @@
 import { Level, parseLevel, type LevelInput } from "./levels.js";
-import type { Plugin } from "./plugin.js";
+import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
 import { createRecord, type LogRecord } from "./records.js";
 import type { Transport } from "../transports/transport.js";
 
 export interface LoggerOptions {
   level?: LevelInput;
   transports?: Transport[];
-  plugins?: Plugin[];
+  plugins?: (Plugin | MiddlewareFunc)[];
   meta?: Record<string, unknown>;
 }
 
@@ -21,7 +21,10 @@ export class Logger {
     this.name = name;
     this.currentLevel = parseLevel(options.level ?? Level.INFO);
     this.transports = options.transports ? [...options.transports] : [];
-    this.plugins = options.plugins ? [...options.plugins] : [];
+    this.plugins = [];
+    for (const plugin of options.plugins ?? []) {
+      this.use(plugin);
+    }
     this.baseMeta = options.meta ? { ...options.meta } : {};
   }
 
@@ -33,9 +36,14 @@ export class Logger {
     this.currentLevel = parseLevel(level);
   }
 
-  /** Register a plugin. Returns `this` so calls can be chained. */
-  use(plugin: Plugin): this {
-    this.plugins.push(plugin);
+  /**
+   * Register a plugin, or a plain `beforeLog`-style function. A function is
+   * wrapped internally as an anonymous `Plugin` (`FunctionPlugin`) — the
+   * same middleware ergonomics as Express/Koa, without needing to read the
+   * `Plugin` interface first. Returns `this` so calls can be chained.
+   */
+  use(plugin: Plugin | MiddlewareFunc): this {
+    this.plugins.push(typeof plugin === "function" ? new FunctionPlugin(plugin) : plugin);
     return this;
   }
 

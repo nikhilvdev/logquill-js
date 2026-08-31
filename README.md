@@ -10,8 +10,8 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 (repo: `logquill-python`).
 
 Status: pre-release, under active development. The core `Logger`, level
-filtering, the plugin pipeline (with `ContextPlugin`/`RedactPlugin`/
-`SamplingPlugin` built in), `JSONFormatter`, and a broad transport catalog —
+filtering, a full plugin pipeline (context/redaction/PII/tamper-evidence/
+sampling/alerting), `JSONFormatter`, and a broad transport catalog —
 console/file/HTTP, SQL, NoSQL, message queues, and cloud-native log
 platforms — are implemented; non-blocking async dispatch is not yet — see
 `CHANGELOG.md` for what's landed so far.
@@ -22,7 +22,7 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
 - **Cross-language record shape** — identical JSON shape and level names/weights as [`logquill` on PyPI](https://pypi.org/project/logquill/)
 - **Pluggable formatters** — `JSONFormatter` out of the box; implement `format(record) -> string` for your own
 - **A transport for wherever your logs need to go** — console, file, and HTTP out of the box, plus SQL (SQLite/Postgres/MySQL), NoSQL (MongoDB/DynamoDB/Redis), message queues (Kafka/RabbitMQ/SQS/Pub-Sub), and cloud-native platforms (CloudWatch/Cloud Logging/App Insights/Datadog/Elasticsearch/New Relic) — see [Transports](#transports). Every backend driver is an **optional peer dependency**: install only the one you use, or inject a pre-built client. Write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
-- **Plugin pipeline** — `ContextPlugin`, `RedactPlugin`, `SamplingPlugin` out of the box; `beforeLog`/`afterLog`/`onError` hooks; a throwing plugin can't crash logging
+- **Plugin pipeline** — `ContextPlugin`, `RedactPlugin`, `PIIRedactPlugin`, tail-based `SamplingPlugin`, `TamperEvidentPlugin`, and `AlertingPlugin` (`SlackAlertPlugin`/`PagerDutyAlertPlugin`/`EmailAlertPlugin`) out of the box; `beforeLog`/`afterLog`/`onError` hooks, or just pass a plain function to `.use()`; a throwing plugin can't crash logging — see [Plugins](#plugins)
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
@@ -38,6 +38,10 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
   - [Message queue transports](#message-queue-transports)
   - [Cloud-native transports](#cloud-native-transports)
 - [Plugins](#plugins)
+  - [Tail-based sampling](#tail-based-sampling)
+  - [PII redaction](#pii-redaction)
+  - [Tamper-evident logs](#tamper-evident-logs)
+  - [Alerting](#alerting)
 - [Development](#development)
 - [License](#license)
 
@@ -409,7 +413,94 @@ logger.info("login attempt", { user_id: 42, password: "hunter2" });
 // (unless this call was one of the ~90% sampling dropped, in which case it's null)
 ```
 
-Write your own by implementing `Plugin`; every hook is optional.
+Write your own by implementing `Plugin`; every hook is optional. `.use()`
+also accepts a plain function in place of a `Plugin` — sugar for a
+single-method `beforeLog` plugin, Express/Koa-style:
+
+```ts
+logger.use((record) => {
+  delete record.meta.ssn;
+  return record; // or null to drop the record
+});
+```
+
+### Tail-based sampling
+
+`SamplingPlugin` can do more than flat-rate sampling: pass `transports`
+and it buffers a sampled-out record under its `meta.traceId` instead of
+dropping it outright. If a later record on that same trace reaches
+`elevateAt` (default `ERROR`), the whole trace is flushed — every buffered
+record for it, plus everything from then on — so a request that turned out
+to matter still produces a complete trace, even though most of its steps
+would otherwise have been sampled away.
+
+```ts
+import { CollectingTransport, Logger, SamplingPlugin } from "logquill";
+
+const sink = new CollectingTransport();
+const logger = new Logger("app", {
+  transports: [sink],
+  plugins: [new SamplingPlugin(0.01, { transports: [sink] })], // keep 1%, but never lose an errored trace
+});
+
+logger.info("step 1", { traceId: "req-42" }); // likely dropped...
+logger.info("step 2", { traceId: "req-42" }); // ...and this one too
+logger.error("step 3 failed", { traceId: "req-42" }); // elevates req-42 — steps 1-3 all ship
+```
+
+### PII redaction
+
+`PIIRedactPlugin` complements `RedactPlugin`'s exact-key matching with
+regex-based scanning of `meta` **values** — emails, SSNs, credit-card
+numbers, and phone numbers are redacted wherever they appear, recursively
+through nested objects/arrays, regardless of which key holds them.
+
+```ts
+import { Logger, PIIRedactPlugin } from "logquill";
+
+const logger = new Logger("app", { plugins: [new PIIRedactPlugin()] });
+logger.info("support ticket", { notes: "contact me at jane@example.com" });
+// meta.notes: "contact me at ***"
+```
+
+### Tamper-evident logs
+
+`TamperEvidentPlugin` hash-chains every record — each one's `meta.hash` is
+a SHA-256 digest over its own content plus the previous record's hash — so
+editing, removing, or reordering a written line breaks the chain from that
+point on, detectable later with the static `verifyChain()`. Opt-in: hashing
+every record has a real CPU cost.
+
+```ts
+import { Logger, TamperEvidentPlugin } from "logquill";
+
+const logger = new Logger("app", { plugins: [new TamperEvidentPlugin()] });
+const records = [logger.info("one"), logger.info("two")];
+
+TamperEvidentPlugin.verifyChain(records); // true
+```
+
+### Alerting
+
+`AlertingPlugin` is the base for plugins that fire an external alert on
+ERROR/FATAL (or any configurable `threshold`) without ever blocking the
+log call that triggered it. Repeated matches within a dedupe window
+collapse into a single follow-up alert reporting the total count, instead
+of spamming the destination once per record.
+
+```ts
+import { Logger, SlackAlertPlugin } from "logquill";
+
+const logger = new Logger("app", {
+  plugins: [new SlackAlertPlugin("https://hooks.slack.com/services/...")],
+});
+logger.error("payment webhook failed", { orderId: "o-123" });
+```
+
+`PagerDutyAlertPlugin` (Events API v2, no extra dependency) and
+`EmailAlertPlugin` (SMTP via the optional `nodemailer` peer dependency, or
+inject a `sender`) follow the same shape. Write your own by extending
+`AlertingPlugin` and implementing `sendAlert(record, occurrences)`.
 
 ## Development
 
