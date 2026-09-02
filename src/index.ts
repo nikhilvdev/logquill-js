@@ -12,6 +12,19 @@ export { FunctionPlugin } from "./core/plugin.js";
 
 export { ContextPlugin } from "./plugins/context-plugin.js";
 
+export { RunPlugin } from "./plugins/run-plugin.js";
+export type { RunPluginOptions } from "./plugins/run-plugin.js";
+
+export {
+  defaultResolveActiveOtelTraceId,
+  generateTraceId,
+  getTraceparent,
+  parseTraceHeader,
+  setTraceparent,
+  TraceContextPlugin,
+} from "./plugins/trace-context-plugin.js";
+export type { TraceContextPluginOptions } from "./plugins/trace-context-plugin.js";
+
 export { DEFAULT_REDACTED_KEYS, RedactPlugin } from "./plugins/redact-plugin.js";
 export type { RedactPluginOptions } from "./plugins/redact-plugin.js";
 
@@ -142,6 +155,6 @@ export { HTTPTransport } from "./transports/http-transport.js";
 export type { HTTPTransportOptions, Sender } from "./transports/http-transport.js";
 
 export { Logger } from "./core/logger.js";
-export type { LoggerOptions } from "./core/logger.js";
+export type { LoggerOptions, SpanOptions } from "./core/logger.js";
 
 export const VERSION = "0.3.0";

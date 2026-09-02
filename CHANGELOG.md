@@ -4,6 +4,95 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-02
+
+### Added
+
+Trace correlation & agentic tracing:
+
+- `.thought()/.action()/.observation()/.decision()` on `Logger` — `.info()`
+  with `meta.kind` pre-set for tagging agent reasoning steps; a call-site
+  `kind` in the passed `meta` overrides the default.
+- `Logger.span(name, fn, options?)` — `await logger.span("callLlm", async () => {...})`
+  runs `fn` and, on settling (success or throw), emits one record for the
+  span itself carrying `meta.spanId` and `meta.durationMs`. Every record
+  logged inside `fn` — through any method, and across any `await` — is
+  automatically stamped with `meta.parentSpanId` pointing at this span, via
+  a new `AsyncLocalStorage`-backed span context (`src/core/span.ts`), so
+  nested/concurrent spans reconstruct their exact nesting by sorting on
+  `spanId`/`parentSpanId` without leaking across concurrent calls sharing
+  one `Logger`. Still emits its record — at `ERROR`, with `meta.error` set
+  — if `fn` throws; the error itself propagates unchanged. `spanId`/
+  `parentSpanId` normally auto-generate/auto-nest, but can be passed
+  explicitly in `options` to adopt an id handed in from elsewhere (e.g. a
+  future framework adapter).
+- `RunPlugin` — stamps `meta.runId` (generated if not given) and an
+  incrementing `meta.step`; one instance scopes one run, so concurrent runs
+  never share a counter. A record that already carries `meta.runId`
+  (propagated from upstream) keeps it.
+- `TraceContextPlugin` — stamps `meta.traceId` for cross-service
+  correlation, distinct from `runId`. Resolves, in order: an active
+  OpenTelemetry span's trace id (via a synchronous, lazy
+  `require("@opentelemetry/api")` — never a declared dependency, and
+  injectable via `resolveActiveOtelTraceId` for tests or non-Node OTel
+  surfaces), the `traceparent` constructor option, whatever
+  `setTraceparent()` most recently set for the current execution context
+  (`AsyncLocalStorage`-backed, matching Python's `contextvars`-based
+  propagation), or a freshly generated id. Understands W3C `traceparent`,
+  AWS X-Ray `X-Amzn-Trace-Id`, and GCP `X-Cloud-Trace-Context` headers via
+  the exported `parseTraceHeader()`.
+- `LangChainAdapter` and `LangGraphAdapter` — implement LangChain.js's
+  `BaseCallbackHandler`, mapping `handleChainStart`/`handleChainEnd` to one
+  `span()`-shaped record, `handleLLMStart`/`handleLLMEnd` to
+  `.action()`/`.observation()` with `durationMs`, `handleAgentAction` to
+  `.action()`, `handleAgentEnd` to `.decision()`, and
+  `handleToolStart`/`handleToolEnd`/`handleToolError` to the matching
+  calls — LangChain's own `runId`/`parentRunId` written directly onto
+  `meta.spanId`/`meta.parentSpanId` on every event, field renaming rather
+  than translation. `LangGraphAdapter` is `LangChainAdapter` re-exported
+  under its own name: LangGraph.js nodes run as ordinary LangChain
+  `Runnable`s, so the same handler already covers them, and — unlike
+  `logquill-python`'s `LangGraphAdapter` — there's no separate
+  checkpoint-callback surface to add: `@langchain/langgraph` (checked
+  against 1.4.13) exposes no `GraphCallbackHandler`/`onInterrupt`/
+  `onResume` equivalent to LangGraph Python's; `interrupt()` instead
+  surfaces through the graph's state/stream output, not the
+  callback-handler system.
+
+  Ships as a **separate entry point**, `import { LangChainAdapter } from
+  "logquill/langchain"` (new `dist/langchain.{mjs,cjs,d.ts}` build target,
+  `@langchain/core` as an optional peer dependency) — not from the main
+  `"logquill"` import. This is a deliberate deviation from this repo's
+  original plan of a fully separate `logquill-langchain` npm package: it
+  stays in this repo instead, but is still isolated to its own module
+  graph, for a real technical reason, not just organization —
+  `LangChainAdapter` has to `extends BaseCallbackHandler`, a hard static
+  import, and mixing that into the main barrel would mean every plain
+  `import { Logger } from "logquill"` needed `@langchain/core` installed
+  to resolve, even for consumers who never touch LangChain. Verified: the
+  main entry point's build output has zero references to `@langchain/core`.
+
+### Fixed
+
+- `Logger`'s per-transport dispatch had no error handling: a transport that
+  failed to format or write a given record (e.g. a circular reference in
+  `meta`) propagated straight to the caller. Now caught and reported via
+  `console.error`, per transport, matching every other internal-failure
+  path in this codebase (`BatchingTransport`, `HTTPTransport`,
+  `NewRelicTransport`) — one broken transport can no longer crash the
+  caller or stop other attached transports from receiving the record.
+- `LangChainAdapter`'s `handleChainError`/`handleLLMError`/`handleToolError`
+  assumed a real `Error` instance and read `.name`/`.message` off it
+  directly. LangChain's own type declarations type this parameter as
+  `Error`, but nothing enforces that where it actually originates — a
+  tool's `_call`, an LLM provider, or any chain step can `throw` a bare
+  string or plain object just as validly, and LangChain forwards whatever
+  was thrown unchanged. A non-`Error` throw silently corrupted the logged
+  `meta.error` (`"undefined: undefined"`); `throw null`/`throw undefined`
+  crashed the handler itself — the exact input this code path exists to
+  report. Now guarded with an `instanceof Error` check, matching
+  `Logger.span()`'s equivalent `formatSpanError` in `core/logger.ts`.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

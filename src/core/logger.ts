@@ -1,7 +1,23 @@
 import { Level, parseLevel, type LevelInput } from "./levels.js";
 import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
 import { createRecord, type LogRecord } from "./records.js";
+import { currentSpanId, newSpanId, runInSpan } from "./span.js";
 import type { Transport } from "../transports/transport.js";
+
+/** Options for `Logger.span()`. Any extra keys become the span's own `meta`. */
+export interface SpanOptions extends Record<string, unknown> {
+  /** Adopt an id handed in from elsewhere (e.g. a framework's own run id) instead of generating one. */
+  spanId?: string;
+  /** Adopt a parent id explicitly, overriding auto-nesting from an enclosing `span()` block. */
+  parentSpanId?: string;
+}
+
+function formatSpanError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return String(error);
+}
 
 export interface LoggerOptions {
   level?: LevelInput;
@@ -85,6 +101,11 @@ export class Logger {
       meta: { ...this.baseMeta, ...meta },
     });
 
+    const parentSpanId = currentSpanId();
+    if (parentSpanId !== undefined) {
+      record.meta.parentSpanId ??= parentSpanId;
+    }
+
     for (const plugin of this.plugins) {
       let result: LogRecord | null;
       try {
@@ -100,7 +121,13 @@ export class Logger {
     }
 
     for (const transport of this.transports) {
-      transport.write(transport.format(record), record);
+      try {
+        transport.write(transport.format(record), record);
+      } catch (error) {
+        // a transport that can't format or write this particular record
+        // (e.g. a circular reference in `meta`) must not crash the caller
+        console.error(`${transport.constructor.name}: failed to write a log record`, error);
+      }
     }
 
     for (const plugin of this.plugins) {
@@ -136,5 +163,79 @@ export class Logger {
 
   fatal(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.FATAL, message, meta);
+  }
+
+  /** `.info()` tagged `meta.kind = "thought"` — an agent's internal reasoning step, for harness/agentic tracing. */
+  thought(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
+    return this.dispatch(Level.INFO, message, { kind: "thought", ...meta });
+  }
+
+  /** `.info()` tagged `meta.kind = "action"` — an agent taking an action (a tool call, an LLM request), for harness/agentic tracing. */
+  action(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
+    return this.dispatch(Level.INFO, message, { kind: "action", ...meta });
+  }
+
+  /** `.info()` tagged `meta.kind = "observation"` — the result an agent observed from an action, for harness/agentic tracing. */
+  observation(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
+    return this.dispatch(Level.INFO, message, { kind: "observation", ...meta });
+  }
+
+  /** `.info()` tagged `meta.kind = "decision"` — an agent's concluding decision for a step or run, for harness/agentic tracing. */
+  decision(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
+    return this.dispatch(Level.INFO, message, { kind: "decision", ...meta });
+  }
+
+  /**
+   * `await logger.span("callLlm", async () => {...})` — runs `fn`, and on
+   * settling (success or throw) emits one record for the span itself
+   * carrying `meta.spanId` and `meta.durationMs`. Every record logged
+   * inside `fn` — through any method, and through any further `await` —
+   * is automatically stamped with `meta.parentSpanId` pointing at this
+   * span, so nested/sub-agent calls reconstruct their exact nesting when
+   * sorted by `spanId`/`parentSpanId`.
+   *
+   * Still emits its record — at `ERROR`, with `meta.error` set — if `fn`
+   * throws; the error itself propagates unchanged to the caller.
+   *
+   * `spanId`/`parentSpanId` normally auto-generate/auto-nest; pass them in
+   * `options` to adopt an id handed in from elsewhere (e.g. a framework
+   * adapter translating an id it already received).
+   */
+  async span<T>(name: string, fn: () => T | Promise<T>, options: SpanOptions = {}): Promise<T> {
+    const { spanId: explicitSpanId, parentSpanId: explicitParentSpanId, ...meta } = options;
+    const spanId = explicitSpanId ?? newSpanId();
+    const start = performance.now();
+
+    try {
+      const result = await runInSpan(spanId, () => fn());
+      this.finishSpan(name, spanId, explicitParentSpanId, performance.now() - start, meta);
+      return result;
+    } catch (error) {
+      this.finishSpan(name, spanId, explicitParentSpanId, performance.now() - start, meta, error);
+      throw error;
+    }
+  }
+
+  private finishSpan(
+    name: string,
+    spanId: string,
+    explicitParentSpanId: string | undefined,
+    durationMs: number,
+    meta: Record<string, unknown>,
+    error?: unknown,
+  ): void {
+    const fullMeta: Record<string, unknown> = {
+      spanId,
+      durationMs: Math.round(durationMs * 1000) / 1000,
+      ...meta,
+    };
+    if (explicitParentSpanId !== undefined) {
+      fullMeta.parentSpanId = explicitParentSpanId;
+    }
+    fullMeta.kind ??= "span";
+    if (error !== undefined) {
+      fullMeta.error = formatSpanError(error);
+    }
+    this.dispatch(error !== undefined ? Level.ERROR : Level.INFO, name, fullMeta);
   }
 }

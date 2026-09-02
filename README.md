@@ -26,7 +26,9 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
-- *(planned)* non-blocking async dispatch, `AsyncLocalStorage`-based context propagation — see `CHANGELOG.md`
+- **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/durationMs-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `traceId`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
+- **LangChain.js / LangGraph.js adapter** — `LangChainAdapter`, a `BaseCallbackHandler` that maps chain/LLM/tool/agent events onto the calls above with zero manual instrumentation, from a separate `logquill/langchain` entry point — see [Agentic framework adapters](#agentic-framework-adapters)
+- *(planned)* non-blocking async dispatch, `AsyncLocalStorage`-based general context propagation — see `CHANGELOG.md`
 
 ## Contents
 
@@ -42,6 +44,8 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
   - [PII redaction](#pii-redaction)
   - [Tamper-evident logs](#tamper-evident-logs)
   - [Alerting](#alerting)
+- [Tracing & agentic logging](#tracing--agentic-logging)
+- [Agentic framework adapters](#agentic-framework-adapters)
 - [Development](#development)
 - [License](#license)
 
@@ -501,6 +505,121 @@ logger.error("payment webhook failed", { orderId: "o-123" });
 `EmailAlertPlugin` (SMTP via the optional `nodemailer` peer dependency, or
 inject a `sender`) follow the same shape. Write your own by extending
 `AlertingPlugin` and implementing `sendAlert(record, occurrences)`.
+
+## Tracing & agentic logging
+
+`.thought()/.action()/.observation()/.decision()` are `.info()` with
+`meta.kind` pre-set, for tagging steps of an agent's reasoning loop:
+
+```ts
+import { Logger } from "logquill";
+
+const logger = new Logger("agent");
+logger.thought("deciding which tool to call", { candidates: ["search", "calculator"] });
+logger.action("calling search", { query: "current weather in nyc" });
+logger.observation("search returned 3 results");
+logger.decision("using search result #1");
+```
+
+`Logger.span()` wraps an operation, emitting one record on completion with
+`meta.spanId`/`meta.durationMs` — every record logged inside it, including
+across an `await`, is automatically stamped with `meta.parentSpanId`, so a
+full run's nesting can be reconstructed by sorting on `spanId`/`parentSpanId`.
+It still emits (at `ERROR`, with `meta.error`) and rethrows if the block
+throws:
+
+```ts
+import { Logger } from "logquill";
+
+async function callLlm(prompt: string): Promise<string> {
+  return `response to: ${prompt}`;
+}
+
+const logger = new Logger("agent");
+
+const answer = await logger.span(
+  "callLlm",
+  async () => {
+    logger.action("requesting completion", { model: "gpt-4" });
+    const response = await callLlm("current weather in nyc");
+    logger.observation("received completion");
+    return response;
+  },
+  { model: "gpt-4" },
+);
+```
+
+`RunPlugin` stamps `meta.runId` (generated, or given explicitly) plus an
+incrementing `meta.step` — attach a fresh instance per run so concurrent
+runs don't share a counter:
+
+```ts
+import { Logger, RunPlugin } from "logquill";
+
+const runLogger = new Logger("app").child("agent").use(new RunPlugin());
+runLogger.thought("step one"); // meta: { kind: "thought", runId: "...", step: 0 }
+runLogger.action("step two");  // meta: { kind: "action", runId: "...", step: 1 }
+```
+
+`TraceContextPlugin` stamps `meta.traceId`, for correlating one request
+across services — distinct from `runId`, which scopes one agent run. It
+resolves, in priority order: an active OpenTelemetry span (if
+`@opentelemetry/api` is installed — never a required dependency), an
+inbound `traceparent`/X-Ray/GCP trace header, or a freshly generated id:
+
+```ts
+import { Logger, setTraceparent, TraceContextPlugin } from "logquill";
+
+const logger = new Logger("app", { plugins: [new TraceContextPlugin()] });
+
+// in HTTP middleware, before the handler runs:
+const reset = setTraceparent(req.headers["traceparent"]);
+try {
+  logger.info("handling request"); // meta.traceId resolved from the inbound header
+} finally {
+  reset();
+}
+```
+
+## Agentic framework adapters
+
+`LangChainAdapter` implements LangChain.js's `BaseCallbackHandler`, mapping
+chain/LLM/tool/agent events onto `.action()/.observation()/.decision()` and
+`span()`-shaped records — pass it into `callbacks: [...]` and a chain's
+full call tree is captured with zero manual instrumentation:
+
+```ts
+import { RunnableLambda } from "@langchain/core/runnables";
+import { Logger, RunPlugin } from "logquill";
+import { LangChainAdapter } from "logquill/langchain";
+
+const logger = new Logger("agent").use(new RunPlugin());
+const handler = new LangChainAdapter(logger);
+
+const answerQuestion = RunnableLambda.from((question: string) => `answer: ${question}`);
+await answerQuestion.invoke("what is 2+2?", { callbacks: [handler] });
+// logs one record: { message: "RunnableLambda", meta: { kind: "span", spanId: "...", durationMs: ... } }
+```
+
+`LangGraphAdapter` is the same handler under its own name, for LangGraph.js
+graphs — its nodes run as ordinary LangChain `Runnable`s, so no extra
+mapping is needed; pass it the same way:
+
+```ts
+import { LangGraphAdapter } from "logquill/langchain";
+
+const handler = new LangGraphAdapter(logger);
+// const graph = builder.compile({ checkpointer });
+// await graph.invoke(input, { callbacks: [handler], configurable: { thread_id: "1" } });
+```
+
+This is a **separate entry point** — `import ... from "logquill/langchain"`,
+not the main `"logquill"` import — because `LangChainAdapter` has to
+`extends BaseCallbackHandler`, LangChain's own class. Importing plain
+`logquill` never touches `@langchain/core`; only importing
+`logquill/langchain` does. Install `@langchain/core` yourself (it's an
+optional peer dependency) — no separate `@langchain/langgraph` dependency
+is needed for `LangGraphAdapter`.
 
 ## Development
 
