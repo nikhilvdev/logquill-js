@@ -14,27 +14,30 @@ function fakeClient(): PgClientLike & { queryCalls: { text: string; values: unkn
 }
 
 describe("PostgresTransport", () => {
-  it("batches inserts until maxRecords is reached, as one multi-row INSERT", () => {
+  it("batches inserts until maxRecords is reached, as one multi-row INSERT", async () => {
     const client = fakeClient();
     const transport = new PostgresTransport({ client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.queryCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.queryCalls).toHaveLength(1);
     expect(client.queryCalls[0]?.text).toContain("INSERT INTO logs");
     expect(client.queryCalls[0]?.text).toContain("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9), ($10, $11, $12, $13, $14, $15, $16, $17, $18)");
     expect(client.queryCalls[0]?.values).toHaveLength(18);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeClient();
     const transport = new PostgresTransport({ client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one", { runId: "run-1", spanId: "span-1" });
+    await logger.flush();
     transport.close();
 
     expect(client.queryCalls).toHaveLength(1);
@@ -51,24 +54,26 @@ describe("PostgresTransport", () => {
     expect(typeof timestamp).toBe("string");
   });
 
-  it("never runs ensureTable unless ensureSchema is set", () => {
+  it("never runs ensureTable unless ensureSchema is set", async () => {
     const client = fakeClient();
     const transport = new PostgresTransport({ client });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
 
     expect(client.queryCalls.some((call) => call.text.includes("CREATE TABLE"))).toBe(false);
   });
 
-  it("runs ensureTable exactly once when ensureSchema is true", () => {
+  it("runs ensureTable exactly once when ensureSchema is true", async () => {
     const client = fakeClient();
     const transport = new PostgresTransport({ client, ensureSchema: true, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
     logger.info("two");
+    await logger.flush();
 
     const createCalls = client.queryCalls.filter((call) => call.text.includes("CREATE TABLE IF NOT EXISTS logs"));
     expect(createCalls).toHaveLength(1);
@@ -76,12 +81,13 @@ describe("PostgresTransport", () => {
     expect(createCalls[0]?.text).toContain("JSONB");
   });
 
-  it("flushes once maxBytes is reached even below maxRecords", () => {
+  it("flushes once maxBytes is reached even below maxRecords", async () => {
     const client = fakeClient();
     const transport = new PostgresTransport({ client, maxRecords: 1000, maxBytes: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
     expect(client.queryCalls).toHaveLength(1);
   });
 
@@ -104,6 +110,7 @@ describe("PostgresTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.

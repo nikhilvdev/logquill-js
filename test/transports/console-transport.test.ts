@@ -17,36 +17,39 @@ function fakeConsole(): ConsoleLike & { outLines: string[]; errLines: string[] }
 }
 
 describe("ConsoleTransport", () => {
-  it("writes to console.log, uncolored, when colorize is off", () => {
+  it("writes to console.log, uncolored, when colorize is off", async () => {
     const out = fakeConsole();
     const transport = new ConsoleTransport({ colorize: false, console: out });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     expect(out.outLines).toHaveLength(1);
     expect(out.outLines[0]).toContain("hello");
     expect(out.errLines).toHaveLength(0);
   });
 
-  it("routes ERROR and above to console.error", () => {
+  it("routes ERROR and above to console.error", async () => {
     const out = fakeConsole();
     const transport = new ConsoleTransport({ colorize: false, console: out });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.error("boom");
+    await logger.flush();
 
     expect(out.outLines).toHaveLength(0);
     expect(out.errLines).toHaveLength(1);
     expect(out.errLines[0]).toContain("boom");
   });
 
-  it("wraps output in ANSI codes when colorize is on", () => {
+  it("wraps output in ANSI codes when colorize is on", async () => {
     const out = fakeConsole();
     const transport = new ConsoleTransport({ colorize: true, console: out });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     expect(out.outLines[0]?.startsWith("\x1b[")).toBe(true);
   });

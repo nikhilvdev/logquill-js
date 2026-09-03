@@ -14,24 +14,27 @@ function fakeClient(): RedisClientLike & { xAddCalls: [string, string, Record<st
 }
 
 describe("RedisTransport", () => {
-  it("batches until maxRecords is reached, then issues one XADD per record", () => {
+  it("batches until maxRecords is reached, then issues one XADD per record", async () => {
     const client = fakeClient();
     const transport = new RedisTransport({ client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.xAddCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.xAddCalls).toHaveLength(2);
   });
 
-  it("close() flushes a partial batch to the configured stream with '*' as the entry id", () => {
+  it("close() flushes a partial batch to the configured stream with '*' as the entry id", async () => {
     const client = fakeClient();
     const transport = new RedisTransport({ client, stream: "custom-stream", maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one", { runId: "run-1" });
+    await logger.flush();
     transport.close();
 
     expect(client.xAddCalls).toHaveLength(1);
@@ -45,12 +48,13 @@ describe("RedisTransport", () => {
     expect(typeof fields.timestamp).toBe("string");
   });
 
-  it("flushes once maxBytes is reached even below maxRecords", () => {
+  it("flushes once maxBytes is reached even below maxRecords", async () => {
     const client = fakeClient();
     const transport = new RedisTransport({ client, maxRecords: 1000, maxBytes: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
     expect(client.xAddCalls).toHaveLength(1);
   });
 
@@ -73,6 +77,7 @@ describe("RedisTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.

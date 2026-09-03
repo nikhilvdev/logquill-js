@@ -54,7 +54,8 @@ export type {
   NodemailerTransporterLike,
 } from "./plugins/email-alert-plugin.js";
 
-export { CollectingTransport, Transport } from "./transports/transport.js";
+export { CollectingTransport, hasFlush, Transport } from "./transports/transport.js";
+export type { FlushableTransport } from "./transports/transport.js";
 
 export { BatchingTransport } from "./transports/batching-transport.js";
 export type { BatchingTransportOptions } from "./transports/batching-transport.js";
@@ -156,5 +157,13 @@ export type { HTTPTransportOptions, Sender } from "./transports/http-transport.j
 
 export { Logger } from "./core/logger.js";
 export type { LoggerOptions, SpanOptions } from "./core/logger.js";
+
+export { DispatchQueue } from "./core/dispatch-queue.js";
+export type { BackpressurePolicy, DispatchQueueOptions } from "./core/dispatch-queue.js";
+
+export { withAzureFunction, withCloudFunction, withFlush, withLambda } from "./core/serverless.js";
+
+export { installShutdownHandlers } from "./core/shutdown.js";
+export type { ShutdownHandlerOptions } from "./core/shutdown.js";
 
 export const VERSION = "0.3.0";

@@ -13,32 +13,35 @@ function fakeTopic(): PubSubTopicLike & { publishCalls: Buffer[] } {
 }
 
 describe("PubSubTransport", () => {
-  it("batches at the buffering level but publishes one message per record", () => {
+  it("batches at the buffering level but publishes one message per record", async () => {
     const client = fakeTopic();
     const transport = new PubSubTransport({ topic: "app-logs", client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.publishCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.publishCalls).toHaveLength(2);
     expect(JSON.parse(client.publishCalls[0]?.toString() ?? "{}")).toMatchObject({ message: "one" });
     expect(JSON.parse(client.publishCalls[1]?.toString() ?? "{}")).toMatchObject({ message: "two" });
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeTopic();
     const transport = new PubSubTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.publishCalls).toHaveLength(1);
   });
 
-  it("handles a burst above maxRecords, publishing every record across flushes", () => {
+  it("handles a burst above maxRecords, publishing every record across flushes", async () => {
     const client = fakeTopic();
     const transport = new PubSubTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
@@ -46,17 +49,19 @@ describe("PubSubTransport", () => {
     for (let i = 0; i < 25; i++) {
       logger.info(`message ${String(i)}`);
     }
+    await logger.flush();
     transport.close();
 
     expect(client.publishCalls).toHaveLength(25);
   });
 
-  it("flushes once maxBytes is reached even below maxRecords", () => {
+  it("flushes once maxBytes is reached even below maxRecords", async () => {
     const client = fakeTopic();
     const transport = new PubSubTransport({ topic: "app-logs", client, maxRecords: 1000, maxBytes: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
     expect(client.publishCalls).toHaveLength(1);
   });
 
@@ -79,6 +84,7 @@ describe("PubSubTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
 

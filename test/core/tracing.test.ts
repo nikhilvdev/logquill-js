@@ -29,6 +29,7 @@ describe("Logger.span()", () => {
     const logger = new Logger("app", { transports: [sink] });
 
     await logger.span("callLlm", () => {});
+    await logger.flush();
 
     expect(sink.records).toHaveLength(1);
     const record = sink.records[0];
@@ -42,6 +43,7 @@ describe("Logger.span()", () => {
     const logger = new Logger("app", { transports: [sink] });
 
     await logger.span("callLlm", () => {});
+    await logger.flush();
 
     const record = sink.records[0];
     expect(record?.meta.parentSpanId).toBeUndefined();
@@ -61,6 +63,7 @@ describe("Logger.span()", () => {
     await logger.span("callLlm", () => {
       logger.action("call tool");
     });
+    await logger.flush();
 
     const [actionRecord, spanRecord] = sink.records;
     expect(actionRecord?.message).toBe("call tool");
@@ -75,6 +78,7 @@ describe("Logger.span()", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       logger.action("call tool after await");
     });
+    await logger.flush();
 
     const [actionRecord, spanRecord] = sink.records;
     expect(actionRecord?.meta.parentSpanId).toBe(spanRecord?.meta.spanId);
@@ -89,6 +93,7 @@ describe("Logger.span()", () => {
         logger.action("leaf");
       });
     });
+    await logger.flush();
 
     const [leaf, innerRecord, outerRecord] = sink.records;
     expect(leaf?.meta.parentSpanId).toBe(innerRecord?.meta.spanId);
@@ -105,6 +110,7 @@ describe("Logger.span()", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+    await logger.flush();
 
     expect(sink.records).toHaveLength(1);
     const record = sink.records[0];
@@ -117,6 +123,7 @@ describe("Logger.span()", () => {
     const logger = new Logger("app", { transports: [sink] });
 
     await logger.span("chain", () => {}, { spanId: "abc123", parentSpanId: "parent456" });
+    await logger.flush();
 
     const record = sink.records[0];
     expect(record?.meta.spanId).toBe("abc123");
@@ -128,6 +135,7 @@ describe("Logger.span()", () => {
     const logger = new Logger("app", { transports: [sink] });
 
     await logger.span("chain", () => {}, { model: "gpt-4" });
+    await logger.flush();
 
     expect(sink.records[0]?.meta.model).toBe("gpt-4");
   });
@@ -146,6 +154,7 @@ describe("Logger.span()", () => {
         logger.action("inside second");
       }),
     ]);
+    await logger.flush();
 
     const firstSpanRecord = sink.records.find((r) => r.message === "first");
     const secondSpanRecord = sink.records.find((r) => r.message === "second");

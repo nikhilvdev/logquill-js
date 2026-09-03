@@ -14,25 +14,28 @@ function fakeCollection(): MongoCollectionLike & { insertManyCalls: unknown[][] 
 }
 
 describe("MongoDBTransport", () => {
-  it("batches inserts until maxRecords is reached", () => {
+  it("batches inserts until maxRecords is reached", async () => {
     const collection = fakeCollection();
     const transport = new MongoDBTransport({ collection, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(collection.insertManyCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(collection.insertManyCalls).toHaveLength(1);
     expect(collection.insertManyCalls[0]).toHaveLength(2);
   });
 
-  it("close() flushes a partial batch, mapping records 1:1 to documents", () => {
+  it("close() flushes a partial batch, mapping records 1:1 to documents", async () => {
     const collection = fakeCollection();
     const transport = new MongoDBTransport({ collection, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one", { runId: "run-1" });
+    await logger.flush();
     transport.close();
 
     expect(collection.insertManyCalls).toHaveLength(1);
@@ -44,12 +47,13 @@ describe("MongoDBTransport", () => {
     expect(typeof doc.timestamp).toBe("string");
   });
 
-  it("flushes once maxBytes is reached even below maxRecords", () => {
+  it("flushes once maxBytes is reached even below maxRecords", async () => {
     const collection = fakeCollection();
     const transport = new MongoDBTransport({ collection, maxRecords: 1000, maxBytes: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
     expect(collection.insertManyCalls).toHaveLength(1);
   });
 
@@ -72,6 +76,7 @@ describe("MongoDBTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.
@@ -92,6 +97,7 @@ describe("MongoDBTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
 

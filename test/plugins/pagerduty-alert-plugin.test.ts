@@ -38,6 +38,7 @@ describe("PagerDutyAlertPlugin", () => {
     const logger = new Logger("app.test", { plugins: [plugin] });
 
     logger.error("boom", { userId: 42 });
+    await logger.flush();
     await flushMicrotasks();
 
     expect(sender.calls).toHaveLength(1);
@@ -54,6 +55,7 @@ describe("PagerDutyAlertPlugin", () => {
     const logger = new Logger("app.test", { plugins: [plugin] });
 
     logger.fatal("meltdown");
+    await logger.flush();
     await flushMicrotasks();
 
     const body = JSON.parse(sender.calls[0] as string) as PagerDutyBody;

@@ -13,34 +13,37 @@ function fakeClient(): SQSClientLike & { batchCalls: { queueUrl: string; entries
 }
 
 describe("SQSTransport", () => {
-  it("batches until maxRecords is reached, sending a single sendMessageBatch call", () => {
+  it("batches until maxRecords is reached, sending a single sendMessageBatch call", async () => {
     const client = fakeClient();
     const transport = new SQSTransport({ topic: "https://sqs.example/queue", client, maxRecords: 3 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
     logger.info("two");
+    await logger.flush();
     expect(client.batchCalls).toHaveLength(0);
 
     logger.info("three");
+    await logger.flush();
     expect(client.batchCalls).toHaveLength(1);
     expect(client.batchCalls[0]?.entries).toHaveLength(3);
     expect(client.batchCalls[0]?.queueUrl).toBe("https://sqs.example/queue");
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeClient();
     const transport = new SQSTransport({ topic: "https://sqs.example/queue", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.batchCalls).toHaveLength(1);
     expect(client.batchCalls[0]?.entries).toHaveLength(1);
   });
 
-  it("chunks a batch of 25 records into three SendMessageBatch calls of 10, 10, and 5", () => {
+  it("chunks a batch of 25 records into three SendMessageBatch calls of 10, 10, and 5", async () => {
     const client = fakeClient();
     const transport = new SQSTransport({ topic: "https://sqs.example/queue", client, maxRecords: 25 });
     const logger = new Logger("app.test", { transports: [transport] });
@@ -48,6 +51,7 @@ describe("SQSTransport", () => {
     for (let i = 0; i < 25; i++) {
       logger.info(`message ${String(i)}`);
     }
+    await logger.flush();
 
     expect(client.batchCalls).toHaveLength(3);
     expect(client.batchCalls[0]?.entries).toHaveLength(10);
@@ -77,6 +81,7 @@ describe("SQSTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
 

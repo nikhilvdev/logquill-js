@@ -22,6 +22,15 @@ export abstract class Transport {
   close(): void {}
 }
 
+/** Duck-typed: a transport (typically a `BatchingTransport`) whose `flush()` sends its current buffer now, without closing. */
+export interface FlushableTransport {
+  flush(): void | Promise<void>;
+}
+
+export function hasFlush(transport: Transport): transport is Transport & FlushableTransport {
+  return typeof (transport as Partial<FlushableTransport>).flush === "function";
+}
+
 /** In-memory transport for tests: collects every (formatted, record) pair written to it. */
 export class CollectingTransport extends Transport {
   readonly formatted: string[] = [];

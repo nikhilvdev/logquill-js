@@ -49,22 +49,23 @@ describe("Logger", () => {
     expect(logger.fatal("x")?.level).toBe("FATAL");
   });
 
-  it("dispatches formatted records to every transport", () => {
+  it("dispatches formatted records to every transport", async () => {
     const transport = new CollectingTransport();
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello", { a: 1 });
+    await logger.flush();
 
     expect(transport.records).toHaveLength(1);
     expect(transport.records[0]?.message).toBe("hello");
     expect(transport.formatted[0]).toBe(JSON.stringify(transport.records[0]));
   });
 
-  it("close() closes every attached transport", () => {
+  it("close() closes every attached transport", async () => {
     const transport = new CollectingTransport();
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.close();
+    await logger.close();
 
     expect(transport.closed).toBe(true);
   });
@@ -113,7 +114,7 @@ describe("Logger", () => {
     expect(errors).toHaveLength(1);
   });
 
-  it("a throwing afterLog hook does not crash logging and is routed to onError", () => {
+  it("a throwing afterLog hook does not crash logging and is routed to onError", async () => {
     const errors: unknown[] = [];
     const plugin: Plugin = {
       afterLog() {
@@ -126,10 +127,11 @@ describe("Logger", () => {
     const logger = new Logger("app.test", { plugins: [plugin] });
 
     expect(() => logger.info("still works")).not.toThrow();
+    await logger.flush();
     expect(errors).toHaveLength(1);
   });
 
-  it("child() inherits level, transports, and plugins, and merges meta", () => {
+  it("child() inherits level, transports, and plugins, and merges meta", async () => {
     const transport = new CollectingTransport();
     const logger = new Logger("app", {
       level: Level.WARN,
@@ -144,6 +146,7 @@ describe("Logger", () => {
     const warnRecord = child.warn("connection lost");
     expect(warnRecord?.logger).toBe("app.db");
     expect(warnRecord?.meta).toEqual({ service: "api", component: "pool" });
+    await logger.flush();
     expect(transport.records).toHaveLength(1);
   });
 
@@ -180,5 +183,93 @@ describe("Logger", () => {
     const logger = new Logger("app.test", { plugins: [(record) => ({ ...record, message: "replaced" })] });
 
     expect(logger.info("original")?.message).toBe("replaced");
+  });
+
+  describe("non-blocking dispatch", () => {
+    it("info() returns before the write it triggered runs", () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app.test", { transports: [transport] });
+
+      logger.info("hello");
+
+      // The call already returned — the write is still sitting in the queue.
+      expect(transport.records).toHaveLength(0);
+      expect(logger.queueSize).toBe(1);
+    });
+
+    it("a burst under the configured queue limit loses nothing once flushed", async () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app.test", {
+        transports: [transport],
+        queue: { maxSize: 1000 },
+      });
+
+      for (let i = 0; i < 500; i += 1) {
+        logger.info(`record ${String(i)}`);
+      }
+      await logger.flush();
+
+      expect(transport.records).toHaveLength(500);
+      expect(logger.queueSize).toBe(0);
+    });
+
+    it("a burst above the queue limit applies the configured backpressure policy and stays bounded", async () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app.test", {
+        transports: [transport],
+        queue: { maxSize: 50, policy: "dropOldest" },
+      });
+
+      for (let i = 0; i < 5000; i += 1) {
+        logger.info(`record ${String(i)}`);
+        expect(logger.queueSize).toBeLessThanOrEqual(50); // never grows past maxSize
+      }
+      await logger.flush();
+
+      // dropOldest favors the most recent records — the tail end survives.
+      expect(transport.records).toHaveLength(50);
+      expect(transport.records.at(-1)?.message).toBe("record 4999");
+    });
+
+    it("the block policy never drops a record, even above the queue limit", async () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app.test", {
+        transports: [transport],
+        queue: { maxSize: 5, policy: "block" },
+      });
+
+      for (let i = 0; i < 20; i += 1) {
+        logger.info(`record ${String(i)}`);
+      }
+      await logger.flush();
+
+      expect(transport.records).toHaveLength(20);
+    });
+
+    it("child() shares the parent's dispatch queue", async () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app", { transports: [transport] });
+      const child = logger.child("db");
+
+      logger.info("from parent");
+      child.info("from child");
+      expect(logger.queueSize).toBe(2);
+      expect(child.queueSize).toBe(2);
+
+      await child.flush(); // draining from either logger drains the shared queue
+      expect(transport.records).toHaveLength(2);
+      expect(logger.queueSize).toBe(0);
+    });
+
+    it("close() drains pending writes before closing transports", async () => {
+      const transport = new CollectingTransport();
+      const logger = new Logger("app.test", { transports: [transport] });
+
+      logger.info("last one out");
+      await logger.close();
+
+      expect(transport.records).toHaveLength(1);
+      expect(transport.closed).toBe(true);
+    });
   });
 });

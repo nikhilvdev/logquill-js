@@ -26,6 +26,7 @@ describe("SlackAlertPlugin", () => {
     const logger = new Logger("app.test", { plugins: [plugin] });
 
     logger.error("boom");
+    await logger.flush();
     await flushMicrotasks();
 
     expect(sender.calls).toHaveLength(1);

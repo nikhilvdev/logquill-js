@@ -18,24 +18,27 @@ describe("BaseQueueTransport", () => {
     expect(transport.batches).toHaveLength(0);
   });
 
-  it("batches until maxRecords, never one publish per log call", () => {
+  it("batches until maxRecords, never one publish per log call", async () => {
     const transport = new FakeQueueTransport({ topic: "logs", maxRecords: 3 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
     logger.info("two");
+    await logger.flush();
     expect(transport.batches).toHaveLength(0);
 
     logger.info("three");
+    await logger.flush();
     expect(transport.batches).toHaveLength(1);
     expect(transport.batches[0]).toHaveLength(3);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const transport = new FakeQueueTransport({ topic: "logs", maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(transport.batches).toHaveLength(1);
@@ -47,7 +50,7 @@ describe("BaseQueueTransport", () => {
     expect(transport.topic).toBe("my-queue");
   });
 
-  it("reports a failed publishBatch via console.error instead of throwing", () => {
+  it("reports a failed publishBatch via console.error instead of throwing", async () => {
     class ThrowingQueueTransport extends BaseQueueTransport {
       protected publishBatch(): Promise<void> {
         return Promise.reject(new Error("boom"));
@@ -63,6 +66,10 @@ describe("BaseQueueTransport", () => {
 
     expect(() => {
       logger.info("hello");
+    }).not.toThrow();
+
+    await logger.flush();
+    expect(() => {
       transport.close();
     }).not.toThrow();
 

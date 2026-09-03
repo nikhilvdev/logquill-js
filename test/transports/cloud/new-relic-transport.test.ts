@@ -41,22 +41,24 @@ describe("NewRelicTransport", () => {
     expect(transport.url).toBe("https://log-api.eu.newrelic.com/log/v1");
   });
 
-  it("sends the license key in the Api-Key header", () => {
+  it("sends the license key in the Api-Key header", async () => {
     const sender = fakeSender();
     const transport = new NewRelicTransport({ licenseKey: "my-license-key", sender, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     expect(sender.calls[0]?.headers["Api-Key"]).toBe("my-license-key");
   });
 
-  it("gzips the payload", () => {
+  it("gzips the payload", async () => {
     const sender = fakeSender();
     const transport = new NewRelicTransport({ licenseKey: "lk", sender, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     expect(sender.calls[0]?.headers["Content-Encoding"]).toBe("gzip");
     const body = parseBody((sender.calls[0] as RecordedCall).body);
@@ -64,12 +66,13 @@ describe("NewRelicTransport", () => {
     expect(body[0]?.message).toBe("hello");
   });
 
-  it("strips meta.eventType from the sent payload without mutating the original record", () => {
+  it("strips meta.eventType from the sent payload without mutating the original record", async () => {
     const sender = fakeSender();
     const transport = new NewRelicTransport({ licenseKey: "lk", sender, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     const record = logger.info("hello", { eventType: "reserved", other: "kept" });
+    await logger.flush();
 
     expect(record?.meta.eventType).toBe("reserved"); // original record left unmutated
     const sentMeta = parseBody((sender.calls[0] as RecordedCall).body)[0]?.meta as Record<string, unknown>;
@@ -77,12 +80,13 @@ describe("NewRelicTransport", () => {
     expect(sentMeta.other).toBe("kept");
   });
 
-  it("sends the record's ISO8601 timestamp as-is, no conversion", () => {
+  it("sends the record's ISO8601 timestamp as-is, no conversion", async () => {
     const sender = fakeSender();
     const transport = new NewRelicTransport({ licenseKey: "lk", sender, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     const record = logger.info("hello");
+    await logger.flush();
 
     const sent = parseBody((sender.calls[0] as RecordedCall).body)[0];
     expect(sent?.timestamp).toBe(record?.timestamp);
@@ -136,12 +140,13 @@ describe("NewRelicTransport", () => {
     errorSpy.mockRestore();
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const sender = fakeSender();
     const transport = new NewRelicTransport({ licenseKey: "lk", sender, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(sender.calls).toHaveLength(1);

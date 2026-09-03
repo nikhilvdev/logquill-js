@@ -10,11 +10,11 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 (repo: `logquill-python`).
 
 Status: pre-release, under active development. The core `Logger`, level
-filtering, a full plugin pipeline (context/redaction/PII/tamper-evidence/
-sampling/alerting), `JSONFormatter`, and a broad transport catalog —
-console/file/HTTP, SQL, NoSQL, message queues, and cloud-native log
-platforms — are implemented; non-blocking async dispatch is not yet — see
-`CHANGELOG.md` for what's landed so far.
+filtering, non-blocking async dispatch with configurable backpressure, a
+full plugin pipeline (context/redaction/PII/tamper-evidence/sampling/
+alerting), `JSONFormatter`, and a broad transport catalog — console/file/
+HTTP, SQL, NoSQL, message queues, and cloud-native log platforms — are
+implemented; see `CHANGELOG.md` for what's landed so far.
 
 ## Features
 
@@ -28,7 +28,8 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
 - **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/durationMs-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `traceId`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
 - **LangChain.js / LangGraph.js adapter** — `LangChainAdapter`, a `BaseCallbackHandler` that maps chain/LLM/tool/agent events onto the calls above with zero manual instrumentation, from a separate `logquill/langchain` entry point — see [Agentic framework adapters](#agentic-framework-adapters)
-- *(planned)* non-blocking async dispatch, `AsyncLocalStorage`-based general context propagation — see `CHANGELOG.md`
+- **Non-blocking async dispatch** — a call returns before its write runs, via a bounded internal queue with a configurable backpressure policy (`dropOldest`/`dropNewest`/`block`); `logger.flush()`, `withLambda`/`withCloudFunction`/`withAzureFunction`, and `installShutdownHandlers` cover draining it before a process pauses or exits — see [Async dispatch & shutdown](#async-dispatch--shutdown)
+- *(planned)* `AsyncLocalStorage`-based general context propagation — see `CHANGELOG.md`
 
 ## Contents
 
@@ -46,6 +47,7 @@ platforms — are implemented; non-blocking async dispatch is not yet — see
   - [Alerting](#alerting)
 - [Tracing & agentic logging](#tracing--agentic-logging)
 - [Agentic framework adapters](#agentic-framework-adapters)
+- [Async dispatch & shutdown](#async-dispatch--shutdown)
 - [Development](#development)
 - [License](#license)
 
@@ -620,6 +622,77 @@ not the main `"logquill"` import — because `LangChainAdapter` has to
 `logquill/langchain` does. Install `@langchain/core` yourself (it's an
 optional peer dependency) — no separate `@langchain/langgraph` dependency
 is needed for `LangGraphAdapter`.
+
+## Async dispatch & shutdown
+
+Every `Logger` call returns before the write it triggers actually runs —
+the write (and any plugin `afterLog` hooks) is handed to an internal,
+bounded dispatch queue, drained outside the caller's own call stack:
+
+```ts
+import { CollectingTransport, Logger } from "logquill";
+
+const transport = new CollectingTransport();
+const logger = new Logger("app", { transports: [transport] });
+
+logger.info("hello");
+console.log(transport.records.length); // 0 — still queued
+await logger.flush();
+console.log(transport.records.length); // 1 — now written
+```
+
+The queue has a configurable size and backpressure policy, so a sustained
+burst can't grow memory without bound:
+
+```ts
+const logger = new Logger("app", {
+  transports: [transport],
+  queue: {
+    maxSize: 10_000, // default
+    policy: "dropOldest", // "dropOldest" (default) | "dropNewest" | "block"
+  },
+});
+```
+
+- `"dropOldest"` — once the queue is full, the longest-waiting record is
+  discarded to make room for the new one.
+- `"dropNewest"` — the incoming record is discarded; everything already
+  queued is left alone.
+- `"block"` — nothing is ever dropped: once the queue is full, a call runs
+  its write immediately, on the caller's own stack, instead of queueing it.
+
+Any dropped-record policy calls `onDrop(count, policy)` — rate-limited to
+once per `warnIntervalMs` (default 5000) — so sustained overload is
+visible without flooding your own logs with one warning per drop.
+
+`logger.flush()` waits for every record dispatched so far to reach its
+transports. Note it does *not* force a batching transport (SQL, a queue,
+`HTTPTransport`, ...) to send a batch still under its own threshold early
+— for that, use `withLambda`/`withCloudFunction`/`withAzureFunction`
+(same wrapper, three platform-matching names) around a serverless handler,
+which additionally forces every batching transport's buffer out before
+the wrapped function's result settles — important because a frozen or
+recycled execution environment may never come back to finish a partial
+batch on its own:
+
+```ts
+import { withLambda } from "logquill";
+
+export const handler = withLambda(logger, async (event) => {
+  logger.info("handling request", { requestId: event.requestId });
+  return { statusCode: 200 };
+});
+```
+
+For a long-running process, `installShutdownHandlers` flushes and closes a
+logger once on `SIGTERM`/`SIGINT`/`beforeExit`, so nothing queued is lost
+when the process stops:
+
+```ts
+import { installShutdownHandlers } from "logquill";
+
+installShutdownHandlers(logger); // Node only
+```
 
 ## Development
 

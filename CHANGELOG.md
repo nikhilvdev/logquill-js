@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+Async dispatch, shutdown & serverless safety:
+
+- Non-blocking dispatch — `Logger` calls now hand their write (and any
+  plugin `afterLog` hooks) to an internal `DispatchQueue` and return before
+  either runs, draining outside the caller's own call stack (`setImmediate`,
+  falling back to a microtask where it isn't available). The queue has a
+  configurable `maxSize` (default 10,000) and backpressure policy —
+  `dropOldest` (default), `dropNewest`, or `block`, the last running the
+  overflowing write inline instead of dropping it — set per `Logger` via
+  the new `queue` option. Dropped-record warnings are rate-limited via a
+  configurable `onDrop` callback rather than one `console.warn` per drop.
+- `Logger.flush()` now returns a `Promise` and actually waits for every
+  dispatched record to reach its transports, instead of being synchronous
+  and immediate; `Logger.close()` is now async too, awaiting a flush before
+  closing transports so a pending write can't be lost to a closed file
+  descriptor or connection. `Logger.queueSize` exposes the current pending
+  count.
+- `withLambda`/`withCloudFunction`/`withAzureFunction` (the same wrapper
+  under three platform-matching names) — wraps a serverless handler so
+  `logger.flush()` and every batching transport's own `flush()` are awaited
+  before the wrapped function's result settles, since a frozen or recycled
+  execution environment may never come back to finish a partial batch.
+- `installShutdownHandlers(logger)` — flushes and closes a logger once on
+  `SIGTERM`/`SIGINT`/`beforeExit`, so nothing queued is lost when a
+  long-running process stops. Node-only; returns an unsubscribe function.
+
+This is a breaking change for direct callers of `Logger.close()`, which is
+now `async`.
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

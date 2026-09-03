@@ -8,7 +8,7 @@ function serialized(name: string): Serialized {
 }
 
 describe("LangChainAdapter", () => {
-  it("reconstructs a full run's span tree from a mix of events", () => {
+  it("reconstructs a full run's span tree from a mix of events", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", {
       transports: [sink],
@@ -23,6 +23,7 @@ describe("LangChainAdapter", () => {
     handler.handleToolEnd("result", "tool-1", "chain-1");
     handler.handleAgentEnd({ returnValues: {}, log: "" }, "chain-1");
     handler.handleChainEnd({}, "chain-1", undefined);
+    await logger.flush();
 
     const kinds = sink.records.map((r) => r.meta.kind);
     expect(kinds).toEqual(["action", "observation", "action", "observation", "decision", "span"]);
@@ -52,7 +53,7 @@ describe("LangChainAdapter", () => {
     expect(new Set(sink.records.map((r) => r.meta.runId))).toEqual(new Set(["run-1"]));
   });
 
-  it("nested chains link via parentSpanId", () => {
+  it("nested chains link via parentSpanId", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
@@ -64,6 +65,7 @@ describe("LangChainAdapter", () => {
     handler.handleChainStart(serialized("inner"), {}, "inner-1");
     handler.handleChainEnd({}, "inner-1", "outer-1");
     handler.handleChainEnd({}, "outer-1", undefined);
+    await logger.flush();
 
     const [innerClose, outerClose] = sink.records;
     expect(innerClose?.meta.spanId).toBe("inner-1");
@@ -72,13 +74,14 @@ describe("LangChainAdapter", () => {
     expect(outerClose?.meta.parentSpanId).toBeUndefined();
   });
 
-  it("a chain error closes the span at ERROR level", () => {
+  it("a chain error closes the span at ERROR level", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
 
     handler.handleChainStart(serialized("chain"), {}, "chain-1");
     handler.handleChainError(new Error("boom"), "chain-1", undefined);
+    await logger.flush();
 
     expect(sink.records).toHaveLength(1);
     const record = sink.records[0];
@@ -87,13 +90,14 @@ describe("LangChainAdapter", () => {
     expect(record?.meta.kind).toBe("span");
   });
 
-  it("a tool error logs at ERROR level with the tool's spanId", () => {
+  it("a tool error logs at ERROR level with the tool's spanId", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
 
     handler.handleToolStart(serialized("search"), "query", "tool-1");
     handler.handleToolError(new Error("tool broke"), "tool-1", undefined);
+    await logger.flush();
 
     expect(sink.records).toHaveLength(2);
     const errorRecord = sink.records[1];
@@ -102,7 +106,7 @@ describe("LangChainAdapter", () => {
     expect(errorRecord?.meta.spanId).toBe("tool-1");
   });
 
-  it("a non-Error throw (a tool's _call can legally throw anything) doesn't corrupt or crash", () => {
+  it("a non-Error throw (a tool's _call can legally throw anything) doesn't corrupt or crash", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
@@ -115,6 +119,7 @@ describe("LangChainAdapter", () => {
     expect(() => {
       handler.handleToolError("tool broke", "tool-1", undefined);
     }).not.toThrow();
+    await logger.flush();
     expect(sink.records[2]?.meta.error).toBe("tool broke");
 
     // `null`: `.name`/`.message` on it throws outright — this is the case
@@ -122,23 +127,25 @@ describe("LangChainAdapter", () => {
     expect(() => {
       handler.handleToolError(null, "tool-2", undefined);
     }).not.toThrow();
+    await logger.flush();
     expect(sink.records[3]?.meta.error).toBe("null");
   });
 
-  it("an LLM error logs at ERROR level", () => {
+  it("an LLM error logs at ERROR level", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
 
     handler.handleLLMStart(serialized("llm"), ["hi"], "llm-1");
     handler.handleLLMError(new Error("rate limited"), "llm-1", undefined);
+    await logger.flush();
 
     expect(sink.records).toHaveLength(2);
     expect(sink.records[1]?.level).toBe("ERROR");
     expect(sink.records[1]?.meta.error).toBe("Error: rate limited");
   });
 
-  it("falls back to the last id segment when serialized.name is absent", () => {
+  it("falls back to the last id segment when serialized.name is absent", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
@@ -151,16 +158,18 @@ describe("LangChainAdapter", () => {
 
     handler.handleChainStart(unnamed, {}, "chain-1");
     handler.handleChainEnd({}, "chain-1", undefined);
+    await logger.flush();
 
     expect(sink.records[0]?.message).toBe("RunnableLambda");
   });
 
-  it("handleAgentAction maps to .action() with parentSpanId", () => {
+  it("handleAgentAction maps to .action() with parentSpanId", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangChainAdapter(logger);
 
     handler.handleAgentAction({ tool: "calculator", toolInput: "2+2", log: "" }, "chain-1");
+    await logger.flush();
 
     expect(sink.records).toHaveLength(1);
     expect(sink.records[0]?.message).toBe("calculator");

@@ -26,15 +26,17 @@ describe("DatadogTransport", () => {
     expect(euTransport.url).toBe("https://http-intake.logs.datadoghq.eu/api/v2/logs");
   });
 
-  it("batches writes until maxRecords is reached, passing the API key to the sender", () => {
+  it("batches writes until maxRecords is reached, passing the API key to the sender", async () => {
     const sender = fakeSender();
     const transport = new DatadogTransport({ apiKey: "key123", sender, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(sender.calls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(sender.calls).toHaveLength(1);
     const [url, apiKey, batch] = sender.calls[0] as [string, string, readonly string[]];
     expect(url).toBe(transport.url);
@@ -42,12 +44,13 @@ describe("DatadogTransport", () => {
     expect(batch).toHaveLength(2);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const sender = fakeSender();
     const transport = new DatadogTransport({ apiKey: "key123", sender, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(sender.calls).toHaveLength(1);
