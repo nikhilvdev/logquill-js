@@ -1,3 +1,4 @@
+import { DispatchQueue, type DispatchQueueOptions } from "./dispatch-queue.js";
 import { Level, parseLevel, type LevelInput } from "./levels.js";
 import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
 import { createRecord, type LogRecord } from "./records.js";
@@ -24,6 +25,8 @@ export interface LoggerOptions {
   transports?: Transport[];
   plugins?: (Plugin | MiddlewareFunc)[];
   meta?: Record<string, unknown>;
+  /** Bounds and backpressure policy for the internal async dispatch queue. See `DispatchQueueOptions`. */
+  queue?: DispatchQueueOptions;
 }
 
 export class Logger {
@@ -32,6 +35,7 @@ export class Logger {
   readonly plugins: Plugin[];
   private currentLevel: Level;
   private readonly baseMeta: Record<string, unknown>;
+  private dispatchQueue: DispatchQueue;
 
   constructor(name: string, options: LoggerOptions = {}) {
     this.name = name;
@@ -42,6 +46,7 @@ export class Logger {
       this.use(plugin);
     }
     this.baseMeta = options.meta ? { ...options.meta } : {};
+    this.dispatchQueue = new DispatchQueue(options.queue);
   }
 
   get level(): Level {
@@ -63,21 +68,44 @@ export class Logger {
     return this;
   }
 
-  /** Close every attached transport. Call on shutdown to flush buffered writes. */
-  close(): void {
+  /** Number of dispatched records not yet written to their transports. Bounded by the `queue` option. */
+  get queueSize(): number {
+    return this.dispatchQueue.size;
+  }
+
+  /**
+   * Waits for every record dispatched so far to reach its transports'
+   * `write()` (and any plugin `afterLog` hooks). Note this does *not* force
+   * a batching transport (SQL, a queue, `HTTPTransport`, ...) to send a
+   * batch still under its own `maxRecords`/`maxBytes` threshold early — it
+   * only guarantees the record has been handed to that transport, the same
+   * contract `write()` always had. Before a process may pause or exit
+   * (a serverless freeze, a shutdown signal), prefer `withLambda`/
+   * `installShutdownHandlers`, which additionally force every batching
+   * transport to send its current buffer regardless of threshold.
+   */
+  async flush(): Promise<void> {
+    await this.dispatchQueue.flush();
+  }
+
+  /** Flush every pending record, then close every attached transport. Call once, on shutdown. */
+  async close(): Promise<void> {
+    await this.flush();
     for (const transport of this.transports) {
       transport.close();
     }
   }
 
-  /** A logger scoped under this one, inheriting its level, transports, and plugins. */
+  /** A logger scoped under this one, inheriting its level, transports, plugins, and dispatch queue. */
   child(name: string, meta: Record<string, unknown> = {}): Logger {
-    return new Logger(`${this.name}.${name}`, {
+    const child = new Logger(`${this.name}.${name}`, {
       level: this.currentLevel,
       transports: this.transports,
       plugins: this.plugins,
       meta: { ...this.baseMeta, ...meta },
     });
+    child.dispatchQueue = this.dispatchQueue;
+    return child;
   }
 
   private notifyError(plugin: Plugin, error: unknown, record: LogRecord): void {
@@ -120,6 +148,18 @@ export class Logger {
       record = result;
     }
 
+    // The write itself (I/O) and afterLog are deferred onto the dispatch
+    // queue so this call returns before either runs — see DispatchQueue.
+    // They're bundled into one task to preserve the existing contract that
+    // afterLog fires only once the record has reached every transport.
+    this.dispatchQueue.enqueue(() => {
+      this.writeAndNotify(record);
+    });
+
+    return record;
+  }
+
+  private writeAndNotify(record: LogRecord): void {
     for (const transport of this.transports) {
       try {
         transport.write(transport.format(record), record);
@@ -137,8 +177,6 @@ export class Logger {
         this.notifyError(plugin, error, record);
       }
     }
-
-    return record;
   }
 
   trace(message: string, meta: Record<string, unknown> = {}): LogRecord | null {

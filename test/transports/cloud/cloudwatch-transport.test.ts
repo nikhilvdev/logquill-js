@@ -16,7 +16,7 @@ function fakeClient(): CloudWatchClientLike & {
 }
 
 describe("CloudWatchTransport", () => {
-  it("batches writes until maxRecords is reached", () => {
+  it("batches writes until maxRecords is reached", async () => {
     const client = fakeClient();
     const transport = new CloudWatchTransport({
       client,
@@ -27,16 +27,18 @@ describe("CloudWatchTransport", () => {
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.calls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.calls).toHaveLength(1);
     expect(client.calls[0]?.logGroupName).toBe("my-group");
     expect(client.calls[0]?.logStreamName).toBe("my-stream");
     expect(client.calls[0]?.events).toHaveLength(2);
   });
 
-  it("sorts events by timestamp ascending before sending", () => {
+  it("sorts events by timestamp ascending before sending", async () => {
     const client = fakeClient();
     const transport = new CloudWatchTransport({
       client,
@@ -49,6 +51,7 @@ describe("CloudWatchTransport", () => {
     logger.info("c");
     logger.info("b");
     logger.info("a");
+    await logger.flush();
 
     const events = client.calls[0]?.events ?? [];
     expect(events).toHaveLength(3);
@@ -56,12 +59,13 @@ describe("CloudWatchTransport", () => {
     expect(events).toEqual(sorted);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeClient();
     const transport = new CloudWatchTransport({ client, logGroupName: "g", logStreamName: "s", maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.calls).toHaveLength(1);
@@ -87,6 +91,7 @@ describe("CloudWatchTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.

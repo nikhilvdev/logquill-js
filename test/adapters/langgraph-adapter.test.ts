@@ -16,13 +16,14 @@ describe("LangGraphAdapter", () => {
     expect(handler).toBeInstanceOf(LangChainAdapter);
   });
 
-  it("handles the same chain/LLM/tool events identically to LangChainAdapter", () => {
+  it("handles the same chain/LLM/tool events identically to LangChainAdapter", async () => {
     const sink = new CollectingTransport();
     const logger = new Logger("app.agent", { transports: [sink] });
     const handler = new LangGraphAdapter(logger);
 
     handler.handleChainStart(serialized("graph_node"), {}, "node-1");
     handler.handleChainEnd({}, "node-1", undefined);
+    await logger.flush();
 
     expect(sink.records).toHaveLength(1);
     expect(sink.records[0]?.message).toBe("graph_node");

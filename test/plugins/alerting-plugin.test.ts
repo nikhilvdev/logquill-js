@@ -32,6 +32,7 @@ describe("AlertingPlugin", () => {
     const logger = new Logger("app.test", { plugins: [alerting] });
 
     logger.error("something broke");
+    await logger.flush();
     await flushMicrotasks();
 
     expect(alerting.sent).toHaveLength(1);
@@ -58,6 +59,7 @@ describe("AlertingPlugin", () => {
     const record = logger.error("boom"); // must return promptly, not hang or throw
     expect(record).not.toBeNull();
 
+    await logger.flush();
     await flushMicrotasks();
     expect(broken.errors).toHaveLength(1);
     expect(broken.errors[0]).toBeInstanceOf(Error);
@@ -106,12 +108,14 @@ describe("AlertingPlugin", () => {
     const logger = new Logger("app.test", { plugins: [alerting] });
 
     logger.error("first distinct error");
+    await logger.flush();
     await flushMicrotasks();
     expect(alerting.sent).toHaveLength(1);
 
     // second, different error while the first key's window is still open
     // (maxTrackedKeys: 1) — dropped, not sent
     logger.error("second distinct error");
+    await logger.flush();
     await flushMicrotasks();
     expect(alerting.sent).toHaveLength(1);
   });

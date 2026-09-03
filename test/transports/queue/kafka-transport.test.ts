@@ -15,63 +15,69 @@ function fakeProducer(): KafkaProducerLike & {
 }
 
 describe("KafkaTransport", () => {
-  it("batches messages until maxRecords is reached", () => {
+  it("batches messages until maxRecords is reached", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.sendCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.sendCalls).toHaveLength(1);
     expect(client.sendCalls[0]?.topic).toBe("app-logs");
     expect(client.sendCalls[0]?.messages).toHaveLength(2);
   });
 
-  it("keys messages by meta.runId so same-run messages land on one partition", () => {
+  it("keys messages by meta.runId so same-run messages land on one partition", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("step", { runId: "run-42", traceId: "trace-99" });
+    await logger.flush();
 
     expect(client.sendCalls[0]?.messages[0]?.key).toBe("run-42");
   });
 
-  it("falls back to meta.traceId when meta.runId is absent", () => {
+  it("falls back to meta.traceId when meta.runId is absent", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("step", { traceId: "trace-99" });
+    await logger.flush();
 
     expect(client.sendCalls[0]?.messages[0]?.key).toBe("trace-99");
   });
 
-  it("keys with null when neither runId nor traceId is present", () => {
+  it("keys with null when neither runId nor traceId is present", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("step");
+    await logger.flush();
 
     expect(client.sendCalls[0]?.messages[0]?.key).toBeNull();
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.sendCalls).toHaveLength(1);
     expect(client.sendCalls[0]?.messages).toHaveLength(1);
   });
 
-  it("handles a burst above maxRecords in multiple correctly-sized batches", () => {
+  it("handles a burst above maxRecords in multiple correctly-sized batches", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
@@ -79,6 +85,7 @@ describe("KafkaTransport", () => {
     for (let i = 0; i < 25; i++) {
       logger.info(`message ${String(i)}`);
     }
+    await logger.flush();
     transport.close();
 
     expect(client.sendCalls).toHaveLength(3);
@@ -106,6 +113,7 @@ describe("KafkaTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.

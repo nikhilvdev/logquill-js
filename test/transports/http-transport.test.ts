@@ -48,25 +48,28 @@ describe("HTTPTransport", () => {
   });
 
 
-  it("batches writes until batchSize is reached", () => {
+  it("batches writes until batchSize is reached", async () => {
     const sender = fakeSender();
     const transport = new HTTPTransport("https://example.com/logs", { batchSize: 2, sender });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(sender.calls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(sender.calls).toHaveLength(1);
     expect(sender.calls[0]?.[1]).toHaveLength(2);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const sender = fakeSender();
     const transport = new HTTPTransport("https://example.com/logs", { batchSize: 10, sender });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(sender.calls).toHaveLength(1);

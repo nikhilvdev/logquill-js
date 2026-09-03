@@ -15,33 +15,36 @@ function fakeChannel(): AmqpChannelLike & {
 }
 
 describe("RabbitMQTransport", () => {
-  it("batches at the buffering level but sends one message per record", () => {
+  it("batches at the buffering level but sends one message per record", async () => {
     const client = fakeChannel();
     const transport = new RabbitMQTransport({ topic: "app-logs", client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.sentCalls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.sentCalls).toHaveLength(2);
     expect(client.sentCalls[0]?.queue).toBe("app-logs");
     expect(JSON.parse(client.sentCalls[0]?.content.toString() ?? "{}")).toMatchObject({ message: "one" });
     expect(JSON.parse(client.sentCalls[1]?.content.toString() ?? "{}")).toMatchObject({ message: "two" });
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeChannel();
     const transport = new RabbitMQTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.sentCalls).toHaveLength(1);
   });
 
-  it("handles a burst above maxRecords, sending every record across flushes", () => {
+  it("handles a burst above maxRecords, sending every record across flushes", async () => {
     const client = fakeChannel();
     const transport = new RabbitMQTransport({ topic: "app-logs", client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
@@ -49,6 +52,7 @@ describe("RabbitMQTransport", () => {
     for (let i = 0; i < 25; i++) {
       logger.info(`message ${String(i)}`);
     }
+    await logger.flush();
     transport.close();
 
     expect(client.sentCalls).toHaveLength(25);
@@ -73,6 +77,7 @@ describe("RabbitMQTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
 

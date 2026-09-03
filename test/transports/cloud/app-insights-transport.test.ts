@@ -18,20 +18,22 @@ function fakeClient(): AppInsightsClientLike & { calls: (readonly AppInsightsTra
 }
 
 describe("AppInsightsTransport", () => {
-  it("batches writes until maxRecords is reached", () => {
+  it("batches writes until maxRecords is reached", async () => {
     const client = fakeClient();
     const transport = new AppInsightsTransport({ client, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(client.calls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(client.calls).toHaveLength(1);
     expect(client.calls[0]).toHaveLength(2);
   });
 
-  it("loops one trace per record within a single sendBatch call, mapped to SeverityLevel", () => {
+  it("loops one trace per record within a single sendBatch call, mapped to SeverityLevel", async () => {
     const client = fakeClient();
     const transport = new AppInsightsTransport({ client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport], level: "TRACE" });
@@ -42,17 +44,19 @@ describe("AppInsightsTransport", () => {
     logger.warn("w");
     logger.error("e");
     logger.fatal("f");
+    await logger.flush();
 
     const severities = client.calls.map((traces) => traces[0]?.severity);
     expect(severities).toEqual([0, 0, 1, 2, 3, 4]);
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const client = fakeClient();
     const transport = new AppInsightsTransport({ client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(client.calls).toHaveLength(1);
@@ -78,6 +82,7 @@ describe("AppInsightsTransport", () => {
     };
 
     logger.info("hello");
+    await logger.flush();
     transport.close();
     // The failing dynamic import resolves via real filesystem I/O, not just a
     // microtask, so give it real time rather than a single setImmediate tick.

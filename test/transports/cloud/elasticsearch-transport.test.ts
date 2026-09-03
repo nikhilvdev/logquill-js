@@ -24,15 +24,17 @@ describe("ElasticsearchTransport", () => {
     expect(transport.url).toBe("https://localhost:9200/_bulk");
   });
 
-  it("batches writes until maxRecords is reached, as NDJSON action+source pairs", () => {
+  it("batches writes until maxRecords is reached, as NDJSON action+source pairs", async () => {
     const sender = fakeSender();
     const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 2 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
+    await logger.flush();
     expect(sender.calls).toHaveLength(0);
 
     logger.info("two");
+    await logger.flush();
     expect(sender.calls).toHaveLength(1);
     const [url, , body] = sender.calls[0] as [string, Readonly<Record<string, string>>, string];
     expect(url).toBe(transport.url);
@@ -44,7 +46,7 @@ describe("ElasticsearchTransport", () => {
     expect(JSON.parse(lines[3])).toMatchObject({ message: "two" });
   });
 
-  it("uses a custom index and sets the ApiKey Authorization header when apiKey is given", () => {
+  it("uses a custom index and sets the ApiKey Authorization header when apiKey is given", async () => {
     const sender = fakeSender();
     const transport = new ElasticsearchTransport({
       node: "https://localhost:9200",
@@ -56,28 +58,31 @@ describe("ElasticsearchTransport", () => {
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     const [, headers, body] = sender.calls[0] as [string, Readonly<Record<string, string>>, string];
     expect(headers.Authorization).toBe("ApiKey abc123");
     expect(body).toContain('"custom-logs"');
   });
 
-  it("omits the Authorization header when no apiKey is given", () => {
+  it("omits the Authorization header when no apiKey is given", async () => {
     const sender = fakeSender();
     const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
+    await logger.flush();
 
     expect(sender.calls[0]?.[1].Authorization).toBeUndefined();
   });
 
-  it("close() flushes a partial batch", () => {
+  it("close() flushes a partial batch", async () => {
     const sender = fakeSender();
     const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");
+    await logger.flush();
     transport.close();
 
     expect(sender.calls).toHaveLength(1);
