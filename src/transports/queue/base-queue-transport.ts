@@ -1,6 +1,7 @@
 import { BatchingTransport, type BatchingTransportOptions } from "../batching-transport.js";
 import type { LogRecord } from "../../core/records.js";
 
+/** Options for {@link BaseQueueTransport} and every concrete queue transport that extends it. */
 export interface BaseQueueTransportOptions extends BatchingTransportOptions {
   /**
    * Destination name on the backend — a Kafka topic, a RabbitMQ queue name,
@@ -20,6 +21,7 @@ export interface BaseQueueTransportOptions extends BatchingTransportOptions {
  * `publishBatch()` against its own driver's publish API.
  */
 export abstract class BaseQueueTransport extends BatchingTransport {
+  /** Destination name on the backend — a Kafka topic, a RabbitMQ queue name, an SQS queue URL, or a GCP Pub/Sub topic. */
   readonly topic: string;
 
   constructor(options: BaseQueueTransportOptions) {

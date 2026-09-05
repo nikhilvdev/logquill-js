@@ -3,15 +3,22 @@ import type { LogRecord } from "../../core/records.js";
 
 /** The subset of a `mongodb` `Collection` that `MongoDBTransport` needs. Inject a fake in tests. */
 export interface MongoCollectionLike {
+  /** Inserts every document in one call, matching `mongodb`'s own `Collection.insertMany()`. */
   insertMany(docs: readonly unknown[]): Promise<unknown>;
 }
 
 /** The subset of a `mongodb` `MongoClient` that `MongoDBTransport` needs to lazily connect. */
 export interface MongoClientLike {
+  /** Opens the connection, matching `mongodb`'s own `MongoClient.connect()`. */
   connect(): Promise<unknown>;
-  db(name: string): { collection(name: string): MongoCollectionLike };
+  /** Returns a database handle, from which a collection is looked up by name. */
+  db(name: string): {
+    /** Returns a collection handle for `name`, matching `mongodb`'s own `Db.collection()`. */
+    collection(name: string): MongoCollectionLike;
+  };
 }
 
+/** Options for {@link MongoDBTransport}. */
 export interface MongoDBTransportOptions extends BatchingTransportOptions {
   /** Pre-built collection, e.g. for tests, or an already-connected app. Skips the `mongodb` auto-import entirely. */
   collection?: MongoCollectionLike;

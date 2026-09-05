@@ -6,6 +6,7 @@ import type { LogRecord } from "../../core/records.js";
  * needs. Inject a fake in tests, or an already-resolved `Topic` instance.
  */
 export interface PubSubTopicLike {
+  /** Publishes one message, matching `@google-cloud/pubsub`'s own `Topic.publishMessage()`. */
   publishMessage(message: { data: Buffer }): Promise<string>;
 }
 

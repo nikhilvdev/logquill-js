@@ -4,8 +4,11 @@ import type { LogRecord } from "../../core/records.js";
 
 /** One GCP Cloud Logging entry, shaped for `Log#write`. */
 export interface CloudLoggingEntry {
+  /** Cloud Logging `LogSeverity` value, mapped from the record's level. */
   severity: string;
+  /** ISO8601 timestamp. */
   timestamp: string;
+  /** The record, JSON-decoded, as Cloud Logging's structured payload. */
   jsonPayload: Record<string, unknown>;
 }
 
@@ -15,9 +18,11 @@ export interface CloudLoggingEntry {
  * `importClient()` builds the real adapter around `logging.log(name).write(entries)`.
  */
 export interface CloudLoggingClientLike {
+  /** Writes one batch of entries to the configured log. */
   writeLogEntries(entries: readonly CloudLoggingEntry[]): Promise<unknown>;
 }
 
+/** Options for {@link CloudLoggingTransport}. */
 export interface CloudLoggingTransportOptions extends BatchingTransportOptions {
   /** GCP log name (the last segment of the log resource path). Default `"logquill"`. */
   logName?: string;
@@ -63,7 +68,9 @@ function gcpSeverity(levelValue: string): string {
  * `Log` wrapped to match `CloudLoggingClientLike`).
  */
 export class CloudLoggingTransport extends BatchingTransport {
+  /** GCP log name (the last segment of the log resource path). */
   readonly logName: string;
+  /** GCP project ID passed to the real SDK client; `undefined` when `client` is injected or Application Default Credentials' project is used. */
   readonly projectId: string | undefined;
   private readonly injectedClient: CloudLoggingClientLike | undefined;
   private client: CloudLoggingClientLike | undefined;

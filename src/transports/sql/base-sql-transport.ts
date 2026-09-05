@@ -3,18 +3,27 @@ import type { LogRecord } from "../../core/records.js";
 
 /** One row of the fixed `logs` table schema shared across every SQL transport. */
 export interface SQLLogRow {
+  /** `record.timestamp`, as ISO8601. */
   timestamp: string;
+  /** `record.level`. */
   level: string;
+  /** `record.logger`. */
   logger: string;
+  /** `record.message`. */
   message: string;
   /** `record.meta`, JSON-serialized — every SQL dialect can store this as TEXT/JSON/JSONB. */
   meta: string;
+  /** `record.meta.runId`, if present. */
   runId: string | null;
+  /** `record.meta.spanId`, if present. */
   spanId: string | null;
+  /** `record.meta.parentSpanId`, if present. */
   parentSpanId: string | null;
+  /** `record.meta.traceId`, if present. */
   traceId: string | null;
 }
 
+/** Options for {@link BaseSQLTransport} and every concrete SQL transport that extends it. */
 export interface BaseSQLTransportOptions extends BatchingTransportOptions {
   /** Table to write into. Default `"logs"`. */
   tableName?: string;
@@ -38,7 +47,9 @@ function metaString(meta: Record<string, unknown>, key: string): string | null {
  * Inserts are always batched — never one query per log call.
  */
 export abstract class BaseSQLTransport extends BatchingTransport<SQLLogRow> {
+  /** Table records are inserted into. */
   readonly tableName: string;
+  /** Whether `createTableSQL()` runs before the first insert. Dev/test convenience only. */
   readonly ensureSchema: boolean;
   private schemaEnsured = false;
 

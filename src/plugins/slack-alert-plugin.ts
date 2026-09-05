@@ -22,7 +22,9 @@ function formatMessage(record: LogRecord, occurrences: number): string {
   return `[${record.level}] ${record.logger}: ${record.message}${suffix}`;
 }
 
+/** Options for {@link SlackAlertPlugin}. */
 export interface SlackAlertPluginOptions extends AlertingPluginOptions {
+  /** Posts one alert. Defaults to a `fetch` POST; override for a fake or an alternate backend. */
   sender?: SlackSender;
 }
 
@@ -34,6 +36,7 @@ export interface SlackAlertPluginOptions extends AlertingPluginOptions {
  * fake for tests or an alternate backend.
  */
 export class SlackAlertPlugin extends AlertingPlugin {
+  /** Slack "Incoming Webhook" URL every alert is posted to. */
   readonly webhookUrl: string;
   private readonly sender: SlackSender;
 

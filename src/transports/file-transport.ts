@@ -3,16 +3,23 @@ import { dirname } from "node:path";
 import type { Formatter } from "../core/formatter.js";
 import { Transport } from "./transport.js";
 
+/** Options for {@link FileTransport}. */
 export interface FileTransportOptions {
+  /** Turns a `LogRecord` into the string this transport writes. Defaults to `JSONFormatter`. */
   formatter?: Formatter;
+  /** Rotate once the file reaches this many bytes. `0` disables rotation. Default 10MB. */
   maxBytes?: number;
+  /** How many rotated backups (`.1`, `.2`, ...) to keep. The oldest is deleted once exceeded. Default 5. */
   backupCount?: number;
 }
 
 /** Appends formatted records to a file, rotating when it exceeds `maxBytes`. */
 export class FileTransport extends Transport {
+  /** Path of the file records are appended to. */
   readonly path: string;
+  /** File is rotated once it reaches this many bytes. `0` disables rotation. */
   readonly maxBytes: number;
+  /** How many rotated backups (`.1`, `.2`, ...) are kept. */
   readonly backupCount: number;
   private fd: number;
 
@@ -25,6 +32,7 @@ export class FileTransport extends Transport {
     this.fd = openSync(this.path, "a");
   }
 
+  /** Appends one formatted line to the file, rotating first if `maxBytes` has been exceeded. */
   write(formatted: string): void {
     writeSync(this.fd, formatted + "\n");
     if (this.maxBytes > 0 && fstatSync(this.fd).size >= this.maxBytes) {

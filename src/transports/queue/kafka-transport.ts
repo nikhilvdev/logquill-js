@@ -5,6 +5,7 @@ import type { LogRecord } from "../../core/records.js";
 export interface KafkaProducerLike {
   /** Optional: some injected producers (or fakes) are already connected. */
   connect?(): Promise<void>;
+  /** Publishes one batch of messages to a topic, matching `kafkajs`'s own `Producer.send()`. */
   send(record: { topic: string; messages: { key: string | null; value: string }[] }): Promise<unknown>;
 }
 

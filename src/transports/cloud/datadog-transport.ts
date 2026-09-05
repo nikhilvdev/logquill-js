@@ -17,6 +17,7 @@ async function fetchDatadogSender(url: string, apiKey: string, batch: readonly s
   }
 }
 
+/** Options for {@link DatadogTransport}. */
 export interface DatadogTransportOptions extends BatchingTransportOptions {
   /** Datadog API key, sent in the `DD-API-KEY` header. */
   apiKey: string;
@@ -27,6 +28,7 @@ export interface DatadogTransportOptions extends BatchingTransportOptions {
    * region's intake host silently fails to deliver logs to your account.
    */
   site?: string;
+  /** Delivers one batch. Defaults to a `fetch` POST; override for a fake or a different delivery mechanism. */
   sender?: DatadogSender;
 }
 
@@ -36,8 +38,11 @@ export interface DatadogTransportOptions extends BatchingTransportOptions {
  * `sender` to swap in a fake for tests, or a different delivery mechanism.
  */
 export class DatadogTransport extends BatchingTransport {
+  /** Logs intake endpoint derived from `site`. */
   readonly url: string;
+  /** Datadog API key sent in the `DD-API-KEY` header. */
   readonly apiKey: string;
+  /** Datadog site (region) this transport sends to. */
   readonly site: string;
   private readonly sender: DatadogSender;
 

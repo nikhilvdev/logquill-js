@@ -3,9 +3,11 @@ import type { LogRecord } from "../../core/records.js";
 
 /** The subset of a `redis` (node-redis v4) client that `RedisTransport` needs. Inject a fake in tests. */
 export interface RedisClientLike {
+  /** Appends one entry to `stream`, matching `node-redis`'s own `client.xAdd()`. */
   xAdd(stream: string, id: string, fields: Record<string, string>): Promise<unknown>;
 }
 
+/** Options for {@link RedisTransport}. */
 export interface RedisTransportOptions extends BatchingTransportOptions {
   /** Pre-built, already-connected client, e.g. for tests. Skips the `redis` auto-import entirely. */
   client?: RedisClientLike;

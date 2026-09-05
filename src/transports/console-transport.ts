@@ -15,13 +15,19 @@ const RESET = "\x1b[0m";
 
 /** The subset of `console` this transport needs — swap in a fake for tests. */
 export interface ConsoleLike {
+  /** Writes one already-formatted line, e.g. for a TRACE–WARN record. */
   log(message: string): void;
+  /** Writes one already-formatted line, e.g. for an ERROR/FATAL record. */
   error(message: string): void;
 }
 
+/** Options for {@link ConsoleTransport}. */
 export interface ConsoleTransportOptions {
+  /** Turns a `LogRecord` into the string this transport writes. Defaults to `JSONFormatter`. */
   formatter?: Formatter;
+  /** Wrap each line in an ANSI color escape for its level. Defaults to `true` unless the `NO_COLOR` env var is set. */
   colorize?: boolean;
+  /** Sink to write through instead of the global `console` — swap in a fake for tests. */
   console?: ConsoleLike;
 }
 
@@ -37,6 +43,7 @@ function defaultColorize(): boolean {
  * so this transport works unmodified in a browser bundle.
  */
 export class ConsoleTransport extends Transport {
+  /** Whether each line is wrapped in an ANSI color escape for its level. */
   colorize: boolean;
   private readonly out: ConsoleLike;
 
@@ -46,6 +53,7 @@ export class ConsoleTransport extends Transport {
     this.out = options.console ?? console;
   }
 
+  /** Writes `formatted` via `console.log`, or `console.error` for ERROR/FATAL records. */
   write(formatted: string, record: LogRecord): void {
     const level = parseLevel(record.level);
     const line = this.colorize ? this.applyColor(formatted, level) : formatted;

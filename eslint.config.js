@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default defineConfig(
-  { ignores: ["dist/**", "coverage/**", "node_modules/**"] },
+  { ignores: ["dist/**", "coverage/**", "node_modules/**", "site/**"] },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {

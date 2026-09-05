@@ -5,6 +5,7 @@ import type { LogRecord } from "../../core/records.js";
 export interface AmqpChannelLike {
   /** Optional: only called once, and only when provided, to ensure the queue exists. */
   assertQueue?(queue: string, options?: unknown): Promise<unknown>;
+  /** Publishes one message directly to `queue`, matching `amqplib`'s own `Channel.sendToQueue()`. */
   sendToQueue(queue: string, content: Buffer, options?: unknown): boolean;
 }
 

@@ -6,14 +6,23 @@ const DYNAMO_BATCH_LIMIT = 25;
 
 /** One item written to DynamoDB: `runId` is the partition key, `timestamp` is the sort key. */
 export interface DynamoLogItem {
+  /** Partition key: `record.meta.runId`, else `record.meta.traceId`, else the logger name. */
   runId: string;
+  /** Sort key: `record.timestamp`, as ISO8601. */
   timestamp: string;
+  /** `record.level`. */
   level: string;
+  /** `record.logger`. */
   logger: string;
+  /** `record.message`. */
   message: string;
+  /** `record.meta`, stored as-is (DynamoDB items are schemaless). */
   meta: Record<string, unknown>;
+  /** `record.meta.spanId`, if present. */
   spanId?: string;
+  /** `record.meta.parentSpanId`, if present. */
   parentSpanId?: string;
+  /** `record.meta.traceId`, if present. */
   traceId?: string;
 }
 
@@ -27,9 +36,11 @@ export interface DynamoLogItem {
  * `@aws-sdk/client-dynamodb` wrapper by not injecting a `client`.
  */
 export interface DynamoClientLike {
+  /** Writes one chunk of items (already capped at `DYNAMO_BATCH_LIMIT`) to `tableName` via a `BatchWriteItem`-equivalent call. */
   batchWriteItems(tableName: string, items: readonly DynamoLogItem[]): Promise<unknown>;
 }
 
+/** Options for {@link DynamoDBTransport}. */
 export interface DynamoDBTransportOptions extends BatchingTransportOptions {
   /** Pre-built client, e.g. for tests, or a custom wrapper. Skips the `@aws-sdk/client-dynamodb` auto-import entirely. */
   client?: DynamoClientLike;

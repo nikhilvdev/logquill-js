@@ -1,10 +1,16 @@
 /** Log levels, shared by name and numeric weight with the logquill-python contract. */
 export enum Level {
+  /** Finest-grained diagnostic detail. */
   TRACE = 5,
+  /** Diagnostic detail useful in development. */
   DEBUG = 10,
+  /** Notable events during normal operation. */
   INFO = 20,
+  /** Something unexpected, but not (yet) an error. */
   WARN = 30,
+  /** An error that didn't necessarily stop the operation. */
   ERROR = 40,
+  /** An error that precedes an unrecoverable failure. */
   FATAL = 50,
 }
 

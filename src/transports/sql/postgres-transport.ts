@@ -2,6 +2,7 @@ import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "
 
 /** The subset of a `pg` `Pool`/`Client` that `PostgresTransport` needs. Inject a fake in tests. */
 export interface PgClientLike {
+  /** Runs a parameterized query, matching `pg`'s own `Pool`/`Client.query(text, values)`. */
   query(text: string, values: unknown[]): Promise<unknown>;
 }
 

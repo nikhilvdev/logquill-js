@@ -170,11 +170,12 @@ export { Logger } from "./core/logger.js";
 export type { LoggerOptions, SpanOptions } from "./core/logger.js";
 
 export { DispatchQueue } from "./core/dispatch-queue.js";
-export type { BackpressurePolicy, DispatchQueueOptions } from "./core/dispatch-queue.js";
+export type { BackpressurePolicy, DispatchQueueOptions, Task } from "./core/dispatch-queue.js";
 
 export { withAzureFunction, withCloudFunction, withFlush, withLambda } from "./core/serverless.js";
 
 export { installShutdownHandlers } from "./core/shutdown.js";
 export type { ShutdownHandlerOptions } from "./core/shutdown.js";
 
+/** This package's version, matching `package.json`'s `version` field. */
 export const VERSION = "0.3.0";

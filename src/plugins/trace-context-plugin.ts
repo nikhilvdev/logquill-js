@@ -109,6 +109,7 @@ export function defaultResolveActiveOtelTraceId(): string | undefined {
   }
 }
 
+/** Options for {@link TraceContextPlugin}. */
 export interface TraceContextPluginOptions {
   /** `meta` key the trace id is written to. Default `"traceId"`. */
   traceKey?: string;
@@ -141,6 +142,7 @@ export interface TraceContextPluginOptions {
  * header: falls through to generating a new trace id.
  */
 export class TraceContextPlugin implements Plugin {
+  /** `meta` key the trace id is written to. */
   readonly traceKey: string;
   private readonly explicitTraceparent: string | undefined;
   private readonly resolveActiveOtelTraceId: () => string | undefined;

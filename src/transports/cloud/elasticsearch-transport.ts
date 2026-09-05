@@ -23,6 +23,7 @@ async function fetchElasticsearchSender(
   }
 }
 
+/** Options for {@link ElasticsearchTransport}. */
 export interface ElasticsearchTransportOptions extends BatchingTransportOptions {
   /** Cluster base URL, e.g. `"https://localhost:9200"`. */
   node: string;
@@ -30,6 +31,7 @@ export interface ElasticsearchTransportOptions extends BatchingTransportOptions 
   index?: string;
   /** Elasticsearch API key (base64 `id:api_key`), sent as `Authorization: ApiKey <apiKey>`. Omit to send no auth header (e.g. behind a proxy that adds its own). */
   apiKey?: string;
+  /** Delivers one NDJSON `_bulk` body. Defaults to a `fetch` POST; override for a fake or a different delivery mechanism. */
   sender?: ElasticsearchSender;
 }
 
@@ -40,7 +42,9 @@ export interface ElasticsearchTransportOptions extends BatchingTransportOptions 
  * to swap in a fake for tests, or a different delivery mechanism.
  */
 export class ElasticsearchTransport extends BatchingTransport {
+  /** `_bulk` endpoint derived from the `node` option. */
   readonly url: string;
+  /** Index written into. */
   readonly index: string;
   private readonly apiKey: string | undefined;
   private readonly sender: ElasticsearchSender;

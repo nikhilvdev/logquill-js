@@ -1,5 +1,6 @@
 import type { Logger } from "./logger.js";
 
+/** Options for {@link installShutdownHandlers}. */
 export interface ShutdownHandlerOptions {
   /** Signals to flush-and-close on (e.g. an orchestrator's SIGTERM). Default `["SIGTERM", "SIGINT"]`. */
   signals?: NodeJS.Signals[];
