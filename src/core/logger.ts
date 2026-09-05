@@ -2,7 +2,7 @@ import { DispatchQueue, type DispatchQueueOptions } from "./dispatch-queue.js";
 import { Level, parseLevel, type LevelInput } from "./levels.js";
 import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
 import { createRecord, type LogRecord } from "./records.js";
-import { currentSpanId, newSpanId, runInSpan } from "./span.js";
+import { currentSpanId, newSpanId, runInSpan } from "#span";
 import type { Transport } from "../transports/transport.js";
 
 /** Options for `Logger.span()`. Any extra keys become the span's own `meta`. */

@@ -18,11 +18,22 @@
       "types": "./dist/langchain.d.ts",
       "import": "./dist/langchain.mjs",
       "require": "./dist/langchain.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.mjs"
     }
   },
   "files": [
     "dist"
   ],
+  "imports": {
+    "#span": {
+      "browser": "./src/core/span-browser.ts",
+      "node": "./src/core/span.ts",
+      "default": "./src/core/span.ts"
+    }
+  },
   "engines": {
     "node": ">=18"
   },
@@ -120,6 +131,7 @@
     "@langchain/core": "^1.2.9",
     "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^4.1.11",
+    "esbuild": "^0.27.7",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.6",
