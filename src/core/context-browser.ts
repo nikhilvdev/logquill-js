@@ -4,10 +4,14 @@
  * package.json's `imports` map) so that entry never pulls in
  * `node:async_hooks`. Browsers have no equivalent of `AsyncLocalStorage`,
  * so nesting is tracked with a plain stack of merged contexts instead:
- * correct for synchronous `bindContext()` nesting, but — unlike the Node
- * build — two `bindContext()` calls running concurrently across an `await`
- * on the same logger can interleave and see each other's values. Same
- * documented trade-off as `core/span-browser.ts`.
+ * correct for one in-flight `bindContext()` block at a time — including
+ * across an internal `await`, since the frame is only popped once `fn`'s
+ * returned promise settles — but, unlike the Node build, two
+ * `bindContext()` blocks on the same stack running concurrently across an
+ * `await` can still interleave and see each other's values, since both
+ * frames sit on one shared stack with no way to tell which is "current"
+ * independent of call order. Same documented trade-off as
+ * `core/span-browser.ts`.
  */
 const contextStack: Record<string, unknown>[] = [];
 
@@ -18,9 +22,20 @@ export function currentContext(): Record<string, unknown> {
 
 export function bindContext<T>(values: Record<string, unknown>, fn: () => T): T {
   contextStack.push({ ...currentContext(), ...values });
+  let result: T;
   try {
-    return fn();
-  } finally {
+    result = fn();
+  } catch (error) {
     contextStack.pop();
+    throw error;
   }
+  if (result instanceof Promise) {
+    // Defer the pop until fn's returned promise settles, so a log call made
+    // after an internal `await` still sees this block's context — a plain
+    // synchronous `finally` would pop the frame the moment fn returns its
+    // (still-pending) promise, before any of its post-`await` code runs.
+    return result.finally(() => contextStack.pop()) as T;
+  }
+  contextStack.pop();
+  return result;
 }

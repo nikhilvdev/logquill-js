@@ -4,7 +4,38 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-06
+
+Full v1.0 scope, as scoped in the project spec: leveled/structured logging,
+non-blocking async dispatch with configurable backpressure, the full
+transport catalog (console/file/HTTP, cloud-native, SQL, NoSQL, message
+queues), the plugin pipeline (context, redaction, PII redaction, sampling
+with tail-based elevation, rate limiting, tamper-evidence, alerting),
+agentic/harness tracing (`.thought()/.action()/.observation()/.decision()`,
+spans, `RunPlugin`, `TraceContextPlugin`, the `LangChainAdapter`/
+`LangGraphAdapter` and now `OtelSpanProcessor` integration paths), a
+browser build, and migration bridges for `winston`/`pino`.
+
 ### Added
+
+OpenTelemetry-native tracing integration:
+
+- `OtelSpanProcessor` — bridges an OpenTelemetry-native integration (the
+  Vercel AI SDK's `experimental_telemetry` is the main example) into
+  LogQuill without going through a callback-handler-object model the way
+  `LangChainAdapter` does. Register an instance on any OTel tracer
+  provider (`provider.addSpanProcessor(new OtelSpanProcessor(logger))`)
+  and every span becomes one `.action()` call on start plus one
+  `.observation()` (or `.error()`, on an error status) call on end, with
+  `meta.spanId`/`meta.parentSpanId` taken directly from the span's own
+  ids — OTel span ids are already the same 16-hex-char shape LogQuill's
+  own ids use — and `meta.durationMs` on the end record. Non-empty span
+  attributes are copied onto `meta.attributes` (configurable key)
+  verbatim; renaming onto `gen_ai.*` semantic conventions is left to the
+  planned v2.0 `OTLPTransport`. Like `TraceContextPlugin`, this never
+  imports `@opentelemetry/api` or `@opentelemetry/sdk-trace-base` —
+  duck-typed against the shape a real span has, so the main `logquill`
+  import still never requires either package to be installed.
 
 Advanced context & migration bridges:
 
@@ -96,6 +127,21 @@ Async dispatch, shutdown & serverless safety:
 
 This is a breaking change for direct callers of `Logger.close()`, which is
 now `async`.
+
+### Fixed
+
+- `logquill/browser`: `Logger.span()` and `bindContext()` now correctly
+  survive an internal `await` for a single in-flight span/context block.
+  Previously, the stack-based fallback these use in place of
+  `AsyncLocalStorage` popped its frame the moment the async callback
+  returned its (still-pending) promise, rather than once that promise
+  settled — so any log call made *after* an `await` inside a `span()` or
+  `bindContext()` block silently lost its `parentSpanId`/bound context,
+  even with only one block in flight. This affected every release with
+  the browser build, since it was never actually exercised by a test.
+  Two *concurrent*, overlapping blocks on the same stack can still
+  interleave and see each other's values — that part was and remains a
+  documented trade-off of not having `AsyncLocalStorage` in a browser.
 
 ### Documentation
 

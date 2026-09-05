@@ -36,9 +36,10 @@ function defaultDedupeKey(record: LogRecord): string {
  * default: level + logger + message) fires `sendAlert` right away, without
  * awaiting it — so the log call that triggered it is never blocked on a
  * webhook, SMTP handshake, or any other I/O, even if the destination is
- * slow or unreachable. This stands in for the shared async dispatch queue
- * a later phase will introduce; once that queue exists, `AlertingPlugin`
- * can route through it instead of firing its own unawaited call per alert.
+ * slow or unreachable. This stands in for `Logger`'s own async dispatch
+ * queue, which doesn't yet handle alert delivery; `AlertingPlugin` could
+ * route through it instead of firing its own unawaited call per alert
+ * once it does.
  *
  * Any further record matching the same dedupe key within
  * `dedupeWindowMs` of the first is *not* sent again — it just increments a

@@ -39,7 +39,7 @@ function isPromise(value: void | Promise<void>): value is Promise<void> {
 function defaultScheduler(run: () => void): void {
   // Node has setImmediate (a real macrotask, letting the current call stack
   // — and any synchronous work queued right after it — finish first); a
-  // browser bundle (Phase 8) falls back to a microtask.
+  // browser bundle falls back to a microtask.
   if (typeof setImmediate === "function") {
     setImmediate(run);
   } else {
