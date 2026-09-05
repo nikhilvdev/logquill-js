@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+Advanced context & migration bridges:
+
+- `bindContext(values, fn)`/`currentContext()` — request-scoped context
+  propagation backed by `AsyncLocalStorage`: a value bound once is visible
+  in every nested `Logger` call underneath it, through any number of
+  function calls and `await`s deep, with no manual threading. Nested calls
+  merge (inner wins on key collision); a call-site `meta` value always
+  wins over anything bound this way. Concurrent async operations sharing
+  one `Logger` never see each other's bound context.
+- `meta.err` — pass an `Error` here and it's replaced with a formatted
+  `meta.stack`, mirroring `Logger.span()`'s own error formatting. The JS
+  analogue of `logquill-python`'s `exc_info` kwarg, adapted to how JS has
+  no equivalent of `sys.exc_info()`'s "currently handled exception": the
+  caller passes the `Error` instance directly rather than `True`. A
+  non-`Error` `meta.err` is left untouched rather than rejected.
+- `RateLimitPlugin` — drops records once a key (default `(logger, level)`)
+  exceeds `maxRecords` within a rolling `perSeconds` window, so a noisy
+  loop can't drown out a logger's other messages; each key gets its own
+  window rather than resetting on a shared clock. Bounded by `maxKeys`
+  distinct keys tracked at once, evicting the least-recently-seen on
+  overflow — the same trade-off `SamplingPlugin` already makes for trace
+  buffering.
+- `LogQuillWinstonTransport` (`logquill/winston`, a separate entry point —
+  `winston-transport` is an optional peer dependency, isolated from the
+  main import the same way `LangChainAdapter` is) and
+  `LogQuillPinoDestination` (main entry point — no dependency on `pino`
+  itself, since a destination only has to duck-type as a Node `Writable`)
+  — bridge an existing `winston`/`pino` call site into LogQuill's
+  transports/plugins with no changes to that call site, for incremental
+  migration. Both map the source library's levels onto LogQuill's via an
+  overridable `levelMap`, and both re-filter by the LogQuill `Logger`'s
+  own `level` after the source library's filtering runs.
+
 Async dispatch, shutdown & serverless safety:
 
 - Non-blocking dispatch — `Logger` calls now hand their write (and any
