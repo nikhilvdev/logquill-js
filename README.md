@@ -9,13 +9,15 @@ A logging framework for Node/TypeScript that shares one mental model and one
 JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/logquill/)
 (repo: `logquill-python`).
 
-Status: pre-release, under active development. The core `Logger`, level
-filtering, non-blocking async dispatch with configurable backpressure, a
-full plugin pipeline (context/redaction/PII/tamper-evidence/sampling/
-alerting), `JSONFormatter`, a broad transport catalog — console/file/
-HTTP, SQL, NoSQL, message queues, and cloud-native log platforms — and a
-separate `logquill/browser` build are implemented; see `CHANGELOG.md` for
-what's landed so far.
+Status: **1.0** — the full core `Logger`, level filtering, non-blocking
+async dispatch with configurable backpressure, a full plugin pipeline
+(context/redaction/PII/tamper-evidence/sampling/rate-limiting/alerting),
+`JSONFormatter`, a broad transport catalog — console/file/HTTP, SQL,
+NoSQL, message queues, and cloud-native log platforms — agentic/harness
+tracing (including `LangChainAdapter`/`LangGraphAdapter` and
+`OtelSpanProcessor`), a separate `logquill/browser` build, and
+`winston`/`pino` migration bridges are all shipped; see `CHANGELOG.md` for
+the full history.
 
 ## Features
 
@@ -29,6 +31,7 @@ what's landed so far.
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
 - **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/durationMs-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `traceId`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
 - **LangChain.js / LangGraph.js adapter** — `LangChainAdapter`, a `BaseCallbackHandler` that maps chain/LLM/tool/agent events onto the calls above with zero manual instrumentation, from a separate `logquill/langchain` entry point — see [Agentic framework adapters](#agentic-framework-adapters)
+- **OpenTelemetry-native integration** — `OtelSpanProcessor` bridges frameworks that emit OTel spans directly (e.g. the Vercel AI SDK) onto `.action()`/`.observation()`/`.error()`, with zero real dependency on `@opentelemetry/*` — see [OpenTelemetry-native integration](#opentelemetry-native-integration)
 - **Non-blocking async dispatch** — a call returns before its write runs, via a bounded internal queue with a configurable backpressure policy (`dropOldest`/`dropNewest`/`block`); `logger.flush()`, `withLambda`/`withCloudFunction`/`withAzureFunction`, and `installShutdownHandlers` cover draining it before a process pauses or exits — see [Async dispatch & shutdown](#async-dispatch--shutdown)
 - **Request-scoped context propagation** — `bindContext()`, `AsyncLocalStorage`-backed, so a value set once is visible in every nested log call underneath it without threading it through every signature by hand; `RateLimitPlugin` caps a noisy loop without silencing everything else — see [Context propagation & error capture](#context-propagation--error-capture)
 - **Migration bridges** — `LogQuillWinstonTransport` (from `logquill/winston`) and `LogQuillPinoDestination` let an existing `winston`/`pino` app adopt LogQuill's transports/plugins with no call-site changes — see [Migration bridges](#migration-bridges)
@@ -51,6 +54,7 @@ what's landed so far.
   - [Rate limiting](#rate-limiting)
 - [Tracing & agentic logging](#tracing--agentic-logging)
 - [Agentic framework adapters](#agentic-framework-adapters)
+  - [OpenTelemetry-native integration](#opentelemetry-native-integration)
 - [Async dispatch & shutdown](#async-dispatch--shutdown)
   - [Kubernetes](#kubernetes)
 - [Context propagation & error capture](#context-propagation--error-capture)
@@ -651,6 +655,43 @@ not the main `"logquill"` import — because `LangChainAdapter` has to
 `logquill/langchain` does. Install `@langchain/core` yourself (it's an
 optional peer dependency) — no separate `@langchain/langgraph` dependency
 is needed for `LangGraphAdapter`.
+
+### OpenTelemetry-native integration
+
+Some frameworks aren't callback-handler-based — the Vercel AI SDK's
+`experimental_telemetry` is the main JS example, emitting OpenTelemetry
+spans directly instead of calling into a handler object like
+`BaseCallbackHandler`. `OtelSpanProcessor` covers that case: register it on
+any OTel tracer provider, and every span becomes one `.action()` call on
+start plus one `.observation()` (or `.error()`, on an error status) call on
+end, carrying the span's own `spanId`/`parentSpanId` — OTel span ids are
+already the same 16-hex-char shape LogQuill's own ids use — plus
+`meta.durationMs` on the end record:
+
+```ts
+import { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
+import { Logger, OtelSpanProcessor } from "logquill";
+
+const logger = new Logger("agent");
+const provider = new BasicTracerProvider({
+  spanProcessors: [new OtelSpanProcessor(logger)],
+});
+const tracer = provider.getTracer("my-app");
+
+const span = tracer.startSpan("callLlm");
+span.end();
+// logs two records: one .action() on start, one .observation() on end
+// (or .error() if span.setStatus({ code: SpanStatusCode.ERROR }) was called)
+```
+
+Unlike `LangChainAdapter`, this is exported from the **main** `"logquill"`
+entry point, not a separate subpath — it's fully duck-typed against the
+`Span`/`ReadableSpan` shape, the same approach `TraceContextPlugin` uses
+for its own OTel lookup, so it never imports `@opentelemetry/api` or
+`@opentelemetry/sdk-trace-base` for real. Non-empty span attributes are
+copied onto `meta.attributes` (configurable via `attributesKey`) verbatim;
+mapping onto the OTel `gen_ai.*` semantic conventions is left to the
+planned `OTLPTransport` (v2.0).
 
 ## Async dispatch & shutdown
 
