@@ -146,7 +146,7 @@
     "@langchain/core": "^1.2.9",
     "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^4.1.11",
-    "esbuild": "^0.27.7",
+    "esbuild": "^0.28.2",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "pino": "^10.3.1",
