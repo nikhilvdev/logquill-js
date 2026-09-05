@@ -1,6 +1,7 @@
 /** How a full queue behaves when another task arrives. */
 export type BackpressurePolicy = "dropOldest" | "dropNewest" | "block";
 
+/** Options for the {@link DispatchQueue} constructor. */
 export interface DispatchQueueOptions {
   /** Maximum number of pending tasks the queue holds at once. Default 10_000. */
   maxSize?: number;
@@ -28,7 +29,8 @@ export interface DispatchQueueOptions {
   warnIntervalMs?: number;
 }
 
-type Task = () => void | Promise<void>;
+/** A unit of deferred work queued via `DispatchQueue.enqueue()`. */
+export type Task = () => void | Promise<void>;
 
 function isPromise(value: void | Promise<void>): value is Promise<void> {
   return typeof value === "object" && typeof value.then === "function";
@@ -59,7 +61,9 @@ function defaultOnDrop(count: number, policy: BackpressurePolicy): void {
  * sustained burst can never grow memory unboundedly.
  */
 export class DispatchQueue {
+  /** Maximum number of pending tasks held at once, as configured via `DispatchQueueOptions`. */
   readonly maxSize: number;
+  /** Backpressure policy applied once `maxSize` is reached, as configured via `DispatchQueueOptions`. */
   readonly policy: BackpressurePolicy;
   private readonly onDrop: (count: number, policy: BackpressurePolicy) => void;
   private readonly warnIntervalMs: number;

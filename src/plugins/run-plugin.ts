@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { Plugin } from "../core/plugin.js";
 import type { LogRecord } from "../core/records.js";
 
+/** Options for {@link RunPlugin}. */
 export interface RunPluginOptions {
+  /** Adopt an id handed in from elsewhere (e.g. an upstream call) instead of generating a fresh `randomUUID()`. */
   runId?: string;
 }
 
@@ -26,6 +28,7 @@ export interface RunPluginOptions {
  * this instance's own counter.
  */
 export class RunPlugin implements Plugin {
+  /** Id stamped onto `meta.runId` for every record this instance processes. */
   readonly runId: string;
   private step = 0;
 

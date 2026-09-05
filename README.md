@@ -52,9 +52,11 @@ what's landed so far.
 - [Tracing & agentic logging](#tracing--agentic-logging)
 - [Agentic framework adapters](#agentic-framework-adapters)
 - [Async dispatch & shutdown](#async-dispatch--shutdown)
+  - [Kubernetes](#kubernetes)
 - [Context propagation & error capture](#context-propagation--error-capture)
 - [Migration bridges](#migration-bridges)
 - [Browser build](#browser-build)
+- [API reference](#api-reference)
 - [Development](#development)
 - [License](#license)
 
@@ -721,6 +723,34 @@ import { installShutdownHandlers } from "logquill";
 installShutdownHandlers(logger); // Node only
 ```
 
+### Kubernetes
+
+Default to `ConsoleTransport`, not `FileTransport`, for anything running in
+a container. A container's filesystem is ephemeral and invisible to the
+rest of the cluster — a log file written inside it disappears the moment
+the pod is rescheduled, and nothing aggregates it in the meantime unless
+you also run a sidecar to tail it back out. Writing to stdout/stderr
+instead costs nothing extra: every major container runtime already
+captures both streams, and the node-level log agent your cluster runs
+(Fluentd, Fluent Bit, Vector, or your cloud provider's own) ships them to
+your aggregator without any code on your side that needs to know that
+agent exists:
+
+```ts
+import { ConsoleTransport, Logger } from "logquill";
+
+const logger = new Logger("app", { transports: [new ConsoleTransport()] });
+```
+
+Kubernetes sends `SIGTERM` and then kills the process after
+`terminationGracePeriodSeconds` (30s by default) regardless of whether
+it's finished shutting down, so a record still sitting in the dispatch
+queue at that instant can be lost if nothing catches the signal.
+`installShutdownHandlers(logger)` closes that gap the same way
+`withLambda` closes it for a serverless freeze — call it once, on process
+start, so a pod that's told to stop still flushes and closes the logger
+before Kubernetes kills it.
+
 ## Context propagation & error capture
 
 `bindContext()` merges values into a request-scoped context, backed by
@@ -845,6 +875,18 @@ One behavioral difference from the Node build: `Logger.span()`'s
 the wrong `parentSpanId` — fine for the common case of one span in flight
 at a time.
 
+## API reference
+
+Every exported class and function carries a TSDoc comment; the full
+reference, generated from those comments with
+[TypeDoc](https://typedoc.org), is published at
+[nikhilvdev.github.io/logquill-js](https://nikhilvdev.github.io/logquill-js/)
+and rebuilt on every push to `main`. To build it locally:
+
+```sh
+npm run docs   # writes static HTML to site/
+```
+
 ## Development
 
 ```sh
@@ -853,6 +895,7 @@ npm run build      # dist/index.{mjs,cjs,d.ts} via tsup
 npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
 npm run coverage    # vitest run --coverage
+npm run docs        # typedoc -> site/
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR workflow, the

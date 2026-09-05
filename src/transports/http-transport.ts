@@ -15,9 +15,13 @@ async function fetchSender(url: string, batch: readonly string[]): Promise<void>
   }
 }
 
+/** Options for {@link HTTPTransport}. */
 export interface HTTPTransportOptions {
+  /** Turns a `LogRecord` into the string this transport writes. Defaults to `JSONFormatter`. */
   formatter?: Formatter;
+  /** Flush once the buffer holds this many lines. Default 50. */
   batchSize?: number;
+  /** Delivers one batch. Defaults to a `fetch` POST of newline-delimited JSON; override for a fake or a different backend. */
   sender?: Sender;
 }
 
@@ -26,7 +30,9 @@ export interface HTTPTransportOptions {
  * Pass `sender` to swap in a fake for tests, or a different backend.
  */
 export class HTTPTransport extends Transport {
+  /** Endpoint each batch is POSTed to. */
   readonly url: string;
+  /** Buffer is flushed once it holds this many lines. */
   readonly batchSize: number;
   private readonly sender: Sender;
   private batch: string[] = [];
@@ -38,6 +44,7 @@ export class HTTPTransport extends Transport {
     this.sender = options.sender ?? fetchSender;
   }
 
+  /** Buffers the formatted line, flushing the batch once `batchSize` is reached. */
   write(formatted: string): void {
     this.batch.push(formatted);
     if (this.batch.length >= this.batchSize) {

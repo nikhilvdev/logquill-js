@@ -4,7 +4,9 @@ import type { LogRecord } from "../../core/records.js";
 
 /** One Application Insights trace: a message plus its `SeverityLevel`. */
 export interface AppInsightsTrace {
+  /** Formatted log line. */
   message: string;
+  /** Application Insights `SeverityLevel` value, mapped from the record's level. */
   severity: number;
 }
 
@@ -21,9 +23,11 @@ export interface AppInsightsTrace {
  * batch call — Application Insights doesn't offer one.
  */
 export interface AppInsightsClientLike {
+  /** Tracks every trace in the batch, then flushes once at the end. */
   trackTraceBatch(traces: readonly AppInsightsTrace[]): Promise<unknown>;
 }
 
+/** Options for {@link AppInsightsTransport}. */
 export interface AppInsightsTransportOptions extends BatchingTransportOptions {
   /** Azure Application Insights connection string. Passed to the real SDK client; ignored when `client` is injected. */
   connectionString?: string;
@@ -66,6 +70,7 @@ function appInsightsSeverity(levelValue: string): number {
  * wrapped to match `AppInsightsClientLike`).
  */
 export class AppInsightsTransport extends BatchingTransport {
+  /** Azure Application Insights connection string passed to the real SDK client; `undefined` when `client` is injected. */
   readonly connectionString: string | undefined;
   private readonly injectedClient: AppInsightsClientLike | undefined;
   private client: AppInsightsClientLike | undefined;

@@ -34,9 +34,13 @@ function defaultBeaconSender(url: string, batch: readonly string[]): void {
   });
 }
 
+/** Options for {@link BeaconTransport}. */
 export interface BeaconTransportOptions {
+  /** Turns a `LogRecord` into the string this transport writes. Defaults to `JSONFormatter`. */
   formatter?: Formatter;
+  /** Flush once the buffer holds this many lines. Default 20 — kept low since `sendBeacon` payloads are capped. */
   batchSize?: number;
+  /** Delivers one batch. Defaults to `sendBeacon` with a `fetch(..., { keepalive: true })` fallback; override for a fake or a different backend. */
   sender?: BeaconSender;
 }
 
@@ -48,7 +52,9 @@ export interface BeaconTransportOptions {
  * small — `sendBeacon` payloads are capped (64KB in most browsers).
  */
 export class BeaconTransport extends Transport {
+  /** Endpoint each batch is sent to. */
   readonly url: string;
+  /** Buffer is flushed once it holds this many lines. */
   readonly batchSize: number;
   private readonly sender: BeaconSender;
   private batch: string[] = [];
@@ -60,6 +66,7 @@ export class BeaconTransport extends Transport {
     this.sender = options.sender ?? defaultBeaconSender;
   }
 
+  /** Buffers the formatted line, flushing the batch once `batchSize` is reached. */
   write(formatted: string): void {
     this.batch.push(formatted);
     if (this.batch.length >= this.batchSize) {

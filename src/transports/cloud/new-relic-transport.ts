@@ -7,7 +7,9 @@ export type NewRelicRegion = "US" | "EU";
 
 /** What `NewRelicSender` reports back about one delivery attempt, so the transport can drive its own 429 backoff logic. */
 export interface NewRelicSenderResult {
+  /** `true` for a 2xx response. */
   ok: boolean;
+  /** HTTP status code of the response. */
   status: number;
   /** The raw `Retry-After` response header value, if present — either a number of seconds or an HTTP-date, per RFC 9110. */
   retryAfter: string | null;
@@ -55,6 +57,7 @@ function resumeTimestamp(retryAfter: string | null, now: number): number {
   return Number.isNaN(dateMs) ? now + 60_000 : dateMs;
 }
 
+/** Options for {@link NewRelicTransport}. */
 export interface NewRelicTransportOptions extends BatchingTransportOptions {
   /** New Relic license key, sent in the `Api-Key` header. */
   licenseKey: string;
@@ -65,6 +68,7 @@ export interface NewRelicTransportOptions extends BatchingTransportOptions {
    * vice versa) is rejected. Default `"US"`.
    */
   region?: NewRelicRegion;
+  /** Delivers one gzip-compressed batch. Defaults to a `fetch` POST; override for a fake or to intercept 429s in tests. */
   sender?: NewRelicSender;
   /** Injectable clock for the 429 backoff window, matching `SamplingPlugin`'s injectable `rng`. Default `Date.now`. */
   clock?: () => number;
@@ -82,7 +86,9 @@ export interface NewRelicTransportOptions extends BatchingTransportOptions {
  * backoff tests without waiting on a real clock.
  */
 export class NewRelicTransport extends BatchingTransport {
+  /** Ingest endpoint derived from `region`. */
   readonly url: string;
+  /** New Relic account region this transport sends to. */
   readonly region: NewRelicRegion;
   private readonly licenseKey: string;
   private readonly sender: NewRelicSender;

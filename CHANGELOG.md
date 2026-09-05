@@ -97,6 +97,22 @@ Async dispatch, shutdown & serverless safety:
 This is a breaking change for direct callers of `Logger.close()`, which is
 now `async`.
 
+### Documentation
+
+- A [TypeDoc](https://typedoc.org)-generated API reference, built from
+  TSDoc comments on every exported symbol across the main, `langchain`,
+  `winston`, and `browser` entry points, with `npm run docs` and a
+  GitHub Pages deploy workflow (`.github/workflows/docs.yml`) publishing
+  it on every push to `main`.
+- Filled in TSDoc comments across the codebase so `typedoc` builds with
+  zero warnings — the base `Transport`/`BatchingTransport`/`Logger`
+  classes, every transport's options interface and driver-shaped
+  `*Like` interface, and every plugin's public fields.
+- README: a `### Kubernetes` subsection under async dispatch & shutdown
+  (default to `ConsoleTransport` in a container; flush before
+  `terminationGracePeriodSeconds` expires) and an `## API reference`
+  section linking to the published TypeDoc site.
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

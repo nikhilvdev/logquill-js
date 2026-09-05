@@ -16,5 +16,8 @@ import type { Logger } from "../core/logger.js";
  * subclass a framework SDK class.
  */
 export abstract class LogQuillAdapter {
+  /**
+   * @param log The `Logger` every translated event is forwarded onto.
+   */
   constructor(protected readonly log: Logger) {}
 }

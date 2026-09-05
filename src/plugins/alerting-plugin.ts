@@ -8,6 +8,7 @@ interface DedupeWindow {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/** Options for {@link AlertingPlugin} and every concrete alert plugin that extends it. */
 export interface AlertingPluginOptions {
   /** A record at or above this level fires an alert. Default `Level.ERROR`. */
   threshold?: LevelInput;
@@ -53,8 +54,11 @@ function defaultDedupeKey(record: LogRecord): string {
  * that throws.
  */
 export abstract class AlertingPlugin implements Plugin {
+  /** A record at or above this level fires an alert. */
   readonly threshold: Level;
+  /** How long a dedupe window stays open before a collapsed follow-up alert (if any) fires. */
   readonly dedupeWindowMs: number;
+  /** Distinct concurrent dedupe keys tracked at once; beyond this, new keys are dropped rather than tracked. */
   readonly maxTrackedKeys: number;
   private readonly dedupeKeyFn: (record: LogRecord) => string;
   private readonly windows = new Map<string, DedupeWindow>();

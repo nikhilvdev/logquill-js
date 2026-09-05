@@ -16,8 +16,11 @@ export const DEFAULT_PII_PATTERNS: Readonly<Record<string, RegExp>> = {
 
 const MAX_DEPTH = 50;
 
+/** Options for {@link PIIRedactPlugin}. */
 export interface PIIRedactPluginOptions {
+  /** Named patterns to scan for. Default `DEFAULT_PII_PATTERNS`. */
   patterns?: Readonly<Record<string, RegExp>>;
+  /** Placeholder a matched substring is replaced with. Default `"***"`. */
   replacement?: string;
 }
 
@@ -42,7 +45,9 @@ export interface PIIRedactPluginOptions {
  * throwing.
  */
 export class PIIRedactPlugin implements Plugin {
+  /** Named patterns scanned for in every string `meta` value. */
   readonly patterns: Readonly<Record<string, RegExp>>;
+  /** Placeholder a matched substring is replaced with. */
   readonly replacement: string;
 
   constructor(options: PIIRedactPluginOptions = {}) {

@@ -20,7 +20,9 @@ async function fetchPagerDutySender(body: string): Promise<void> {
   }
 }
 
+/** Options for {@link PagerDutyAlertPlugin}. */
 export interface PagerDutyAlertPluginOptions extends AlertingPluginOptions {
+  /** Posts one Events API v2 payload. Defaults to a `fetch` POST; override for a fake or an alternate backend. */
   sender?: PagerDutySender;
 }
 
@@ -33,6 +35,7 @@ export interface PagerDutyAlertPluginOptions extends AlertingPluginOptions {
  * swap in a fake for tests or an alternate backend.
  */
 export class PagerDutyAlertPlugin extends AlertingPlugin {
+  /** PagerDuty Events API v2 integration key every alert is sent under. */
   readonly routingKey: string;
   private readonly sender: PagerDutySender;
 

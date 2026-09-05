@@ -2,6 +2,7 @@ import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "
 
 /** The subset of a `mysql2/promise` connection/pool that `MySQLTransport` needs. Inject a fake in tests. */
 export interface MySQLClientLike {
+  /** Runs a parameterized query, matching `mysql2`'s own `Connection`/`Pool.execute(sql, values)`. */
   execute(sql: string, values: unknown[]): Promise<unknown>;
 }
 

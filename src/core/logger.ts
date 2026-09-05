@@ -39,18 +39,33 @@ function withStackFromErr(meta: Record<string, unknown>): Record<string, unknown
   return next;
 }
 
+/** Options for the {@link Logger} constructor. */
 export interface LoggerOptions {
+  /** Minimum level that reaches a transport; records below it are dropped before any plugin runs. Default `INFO`. */
   level?: LevelInput;
+  /** Sinks every record that passes the level filter and plugin pipeline is written to. */
   transports?: Transport[];
+  /** Registered via `.use()` in order — a plain function is wrapped as an anonymous `Plugin`. */
   plugins?: (Plugin | MiddlewareFunc)[];
+  /** Merged into every record's `meta`, before a call-site `meta` value (which always wins on collision). */
   meta?: Record<string, unknown>;
   /** Bounds and backpressure policy for the internal async dispatch queue. See `DispatchQueueOptions`. */
   queue?: DispatchQueueOptions;
 }
 
+/**
+ * The core logger: leveled, structured logging over a pluggable transport
+ * and plugin pipeline. Every log call returns the finished `LogRecord` (or
+ * `null` if it was filtered by level or dropped by a plugin) synchronously —
+ * the actual transport writes are dispatched onto an internal queue so the
+ * call returns before any I/O runs; see `flush()`/`close()`.
+ */
 export class Logger {
+  /** This logger's name, as passed to the constructor (or derived via `.child()`). Appears on every record as `logger`. */
   readonly name: string;
+  /** Every transport a written record is sent to. */
   readonly transports: Transport[];
+  /** Every plugin registered via `.use()`, in registration order. */
   readonly plugins: Plugin[];
   private currentLevel: Level;
   private readonly baseMeta: Record<string, unknown>;
@@ -68,10 +83,12 @@ export class Logger {
     this.dispatchQueue = new DispatchQueue(options.queue);
   }
 
+  /** This logger's current minimum level — records below it are filtered before any plugin runs. */
   get level(): Level {
     return this.currentLevel;
   }
 
+  /** Changes the minimum level records must meet to reach a transport. Accepts a `Level`, its numeric weight, or its name. */
   setLevel(level: LevelInput): void {
     this.currentLevel = parseLevel(level);
   }
@@ -198,26 +215,32 @@ export class Logger {
     }
   }
 
+  /** Logs at `TRACE` — the lowest level, for fine-grained diagnostic detail. Returns the record, or `null` if filtered/dropped. */
   trace(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.TRACE, message, meta);
   }
 
+  /** Logs at `DEBUG`. Returns the record, or `null` if filtered/dropped. */
   debug(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.DEBUG, message, meta);
   }
 
+  /** Logs at `INFO`. Returns the record, or `null` if filtered/dropped. */
   info(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.INFO, message, meta);
   }
 
+  /** Logs at `WARN`. Returns the record, or `null` if filtered/dropped. */
   warn(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.WARN, message, meta);
   }
 
+  /** Logs at `ERROR`. Returns the record, or `null` if filtered/dropped. */
   error(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.ERROR, message, meta);
   }
 
+  /** Logs at `FATAL` — the highest level, for errors that precede an unrecoverable failure. Returns the record, or `null` if filtered/dropped. */
   fatal(message: string, meta: Record<string, unknown> = {}): LogRecord | null {
     return this.dispatch(Level.FATAL, message, meta);
   }

@@ -2,9 +2,12 @@ import { createHash } from "node:crypto";
 import type { Plugin } from "../core/plugin.js";
 import type { LogRecord } from "../core/records.js";
 
+/** The hash chain's starting value — a record's `prevHash` when it's the first record in the chain. */
 export const GENESIS_HASH = "0".repeat(64);
 
+/** Options for {@link TamperEvidentPlugin}. */
 export interface TamperEvidentPluginOptions {
+  /** Starting hash the chain builds from. Default `GENESIS_HASH`. Override to continue a chain started elsewhere (e.g. a previous process). */
   genesisHash?: string;
 }
 

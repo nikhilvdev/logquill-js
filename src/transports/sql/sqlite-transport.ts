@@ -2,13 +2,17 @@ import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "
 
 /** The subset of a `better-sqlite3` prepared statement that `SQLiteTransport` needs. */
 export interface SQLiteStatementLike {
+  /** Executes the prepared statement with `params` bound positionally. */
   run(...params: unknown[]): unknown;
 }
 
 /** The subset of a `better-sqlite3` `Database` that `SQLiteTransport` needs. Inject a fake in tests. */
 export interface SQLiteClientLike {
+  /** Runs one or more SQL statements with no return value, e.g. `createTableSQL()`. */
   exec(sql: string): unknown;
+  /** Compiles `sql` into a reusable, repeatedly-`run`-able statement. */
   prepare(sql: string): SQLiteStatementLike;
+  /** Wraps `fn` so every call runs inside a single SQLite transaction. */
   transaction<Args extends unknown[]>(fn: (...args: Args) => void): (...args: Args) => void;
 }
 

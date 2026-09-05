@@ -17,6 +17,7 @@ export const DEFAULT_WINSTON_LEVEL_MAP: WinstonLevelMap = {
   silly: Level.TRACE,
 };
 
+/** Options for {@link LogQuillWinstonTransport}, extending winston-transport's own `TransportStreamOptions` (`level`, etc.). */
 export interface LogQuillWinstonTransportOptions extends Transport.TransportStreamOptions {
   /** Overrides `DEFAULT_WINSTON_LEVEL_MAP` — useful for a winston logger configured with custom levels. An unmapped level falls back to `INFO`. */
   levelMap?: WinstonLevelMap;
@@ -67,6 +68,7 @@ export class LogQuillWinstonTransport extends Transport {
     this.levelMap = levelMap ?? DEFAULT_WINSTON_LEVEL_MAP;
   }
 
+  /** winston-transport's own write hook — called by winston for every entry that reaches this transport. */
   log(info: unknown, callback: () => void): void {
     setImmediate(() => {
       this.emit("logged", info);

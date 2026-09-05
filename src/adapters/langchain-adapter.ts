@@ -87,6 +87,7 @@ function formatError(error: unknown): string {
  * span-closing record.
  */
 export class LangChainAdapter extends BaseCallbackHandler {
+  /** Required by `BaseCallbackHandler` — identifies this handler to LangChain.js, not used by LogQuill itself. */
   name = "logquill";
 
   private readonly log: Logger;

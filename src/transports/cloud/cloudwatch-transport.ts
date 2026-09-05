@@ -3,7 +3,9 @@ import type { LogRecord } from "../../core/records.js";
 
 /** One CloudWatch Logs event: epoch-milliseconds timestamp plus a single log line. */
 export interface CloudWatchLogEvent {
+  /** Epoch-milliseconds timestamp. */
   timestamp: number;
+  /** Formatted log line. */
   message: string;
 }
 
@@ -15,6 +17,7 @@ export interface CloudWatchLogEvent {
  * small for tests; `importClient()` builds the real adapter around it.
  */
 export interface CloudWatchClientLike {
+  /** Sends one already timestamp-sorted batch of events to `logGroupName`/`logStreamName`. */
   putLogEvents(
     logGroupName: string,
     logStreamName: string,
@@ -22,6 +25,7 @@ export interface CloudWatchClientLike {
   ): Promise<unknown>;
 }
 
+/** Options for {@link CloudWatchTransport}. */
 export interface CloudWatchTransportOptions extends BatchingTransportOptions {
   /** CloudWatch Logs log group to write into. */
   logGroupName: string;
@@ -48,8 +52,11 @@ interface AWSCloudWatchLogsClientLike {
  * `CloudWatchLogsClient` wrapped to match `CloudWatchClientLike`).
  */
 export class CloudWatchTransport extends BatchingTransport {
+  /** CloudWatch Logs log group written into. */
   readonly logGroupName: string;
+  /** CloudWatch Logs log stream, within `logGroupName`, written into. */
   readonly logStreamName: string;
+  /** AWS region passed to the real SDK client; `undefined` when `client` is injected or the SDK's own credential-chain resolution is used. */
   readonly region: string | undefined;
   private readonly injectedClient: CloudWatchClientLike | undefined;
   private client: CloudWatchClientLike | undefined;

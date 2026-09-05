@@ -12,6 +12,7 @@ const SQS_BATCH_LIMIT = 10;
  * a fake in tests, or wrap a real `SQSClient` to match this shape.
  */
 export interface SQSClientLike {
+  /** Sends one chunk of entries (already capped at SQS's 10-message `SendMessageBatch` limit) to `queueUrl`. */
   sendMessageBatch(queueUrl: string, entries: { id: string; body: string }[]): Promise<unknown>;
 }
 

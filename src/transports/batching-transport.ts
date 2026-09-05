@@ -2,7 +2,9 @@ import type { Formatter } from "../core/formatter.js";
 import type { LogRecord } from "../core/records.js";
 import { Transport } from "./transport.js";
 
+/** Options for {@link BatchingTransport} and every concrete batching transport that extends it. */
 export interface BatchingTransportOptions {
+  /** Turns a `LogRecord` into the string this transport writes. Defaults to `JSONFormatter`. */
   formatter?: Formatter;
   /** Flush once the buffer holds this many items. Default 100. */
   maxRecords?: number;
@@ -21,7 +23,9 @@ export interface BatchingTransportOptions {
  * matching `HTTPTransport`'s contract.
  */
 export abstract class BatchingTransport<T = LogRecord> extends Transport {
+  /** Buffer is flushed once it holds this many items. */
   readonly maxRecords: number;
+  /** Buffer is flushed once its estimated byte size reaches this many bytes. */
   readonly maxBytes: number;
   private buffer: T[] = [];
   private bufferBytes = 0;
@@ -43,6 +47,7 @@ export abstract class BatchingTransport<T = LogRecord> extends Transport {
     return JSON.stringify(item).length;
   }
 
+  /** Buffers the record, flushing the batch once `maxRecords`/`maxBytes` is reached. */
   write(formatted: string, record: LogRecord): void {
     const item = this.toItem(formatted, record);
     this.buffer.push(item);

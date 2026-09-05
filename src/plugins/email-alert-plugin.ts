@@ -1,10 +1,15 @@
 import { AlertingPlugin, type AlertingPluginOptions } from "./alerting-plugin.js";
 import type { LogRecord } from "../core/records.js";
 
+/** One email alert, as built from a deduplicated record before being handed to `nodemailer` (or an injected `sender`). */
 export interface EmailMessage {
+  /** Envelope `From` address. */
   from: string;
+  /** Envelope `To` addresses. */
   to: string[];
+  /** Subject line — the record's level and logger, with an occurrence count appended on a deduped follow-up. */
   subject: string;
+  /** Plain-text body: the message, occurrence count, timestamp, and JSON-serialized `meta`. */
   text: string;
 }
 
@@ -13,15 +18,23 @@ export type EmailSender = (message: EmailMessage) => Promise<void> | void;
 
 /** The subset of a `nodemailer` transporter that `EmailAlertPlugin` needs. */
 export interface NodemailerTransporterLike {
+  /** Sends one message; matches `nodemailer`'s own `Transporter.sendMail`. */
   sendMail(message: { from: string; to: string; subject: string; text: string }): Promise<unknown>;
 }
 
+/** Options for {@link EmailAlertPlugin}. */
 export interface EmailAlertPluginOptions extends AlertingPluginOptions {
+  /** SMTP server hostname. */
   smtpHost: string;
+  /** SMTP server port. */
   smtpPort: number;
+  /** Envelope `From` address for every alert. */
   fromAddr: string;
+  /** Envelope `To` addresses for every alert. */
   toAddrs: string[];
+  /** SMTP auth username. Only used if `password` is also set. */
   username?: string;
+  /** SMTP auth password. Only used if `username` is also set. */
   password?: string;
   /** `false` for an SMTP server that doesn't support STARTTLS (e.g. a local relay). Default `true`. */
   useTls?: boolean;
@@ -37,9 +50,13 @@ export interface EmailAlertPluginOptions extends AlertingPluginOptions {
  * `username`/`password` are only used if both are set.
  */
 export class EmailAlertPlugin extends AlertingPlugin {
+  /** SMTP server hostname. */
   readonly smtpHost: string;
+  /** SMTP server port. */
   readonly smtpPort: number;
+  /** Envelope `From` address for every alert. */
   readonly fromAddr: string;
+  /** Envelope `To` addresses for every alert. */
   readonly toAddrs: string[];
   private readonly username: string | undefined;
   private readonly password: string | undefined;

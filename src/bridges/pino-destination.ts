@@ -15,6 +15,7 @@ export const DEFAULT_PINO_LEVEL_MAP: PinoLevelMap = {
   60: Level.FATAL,
 };
 
+/** Options for {@link LogQuillPinoDestination}. */
 export interface LogQuillPinoDestinationOptions {
   /** Overrides `DEFAULT_PINO_LEVEL_MAP` — useful for a pino instance configured with custom levels. An unmapped level falls back to `INFO`. */
   levelMap?: PinoLevelMap;
@@ -67,6 +68,7 @@ export class LogQuillPinoDestination {
     this.levelMap = options.levelMap ?? DEFAULT_PINO_LEVEL_MAP;
   }
 
+  /** Node `Writable`-compatible write hook — splits `chunk` into NDJSON lines and dispatches each as a `Logger` call. */
   write(chunk: string): boolean {
     for (const line of chunk.split("\n")) {
       if (line.trim()) {

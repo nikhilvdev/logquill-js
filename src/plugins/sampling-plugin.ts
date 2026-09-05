@@ -3,7 +3,9 @@ import type { Plugin } from "../core/plugin.js";
 import type { LogRecord } from "../core/records.js";
 import type { Transport } from "../transports/transport.js";
 
+/** Options for {@link SamplingPlugin}. */
 export interface SamplingPluginOptions {
+  /** Source of randomness for the rate check. Defaults to `Math.random`; override with a seeded/fake generator for deterministic tests. */
   rng?: () => number;
   /** `meta` key holding the trace/run id used to group buffered records. Default `"traceId"`. */
   traceKey?: string;
@@ -48,11 +50,17 @@ export interface SamplingPluginOptions {
  * or high-cardinality trace grow memory without limit.
  */
 export class SamplingPlugin implements Plugin {
+  /** Fraction of non-elevated records kept, in `[0, 1]`. */
   readonly rate: number;
+  /** `meta` key holding the trace/run id used to group buffered records. */
   readonly traceKey: string;
+  /** A record at or above this level elevates its whole trace. */
   readonly elevateAt: Level;
+  /** Transports buffered records are flushed straight to on elevation; `undefined` disables tail-based elevation. */
   readonly transports: Transport[] | undefined;
+  /** Total buffered records allowed across every trace before the oldest trace is evicted. */
   readonly maxBufferedRecords: number;
+  /** Distinct trace ids held at once before the oldest is evicted. */
   readonly maxTraces: number;
   private readonly rng: () => number;
   private readonly buffer = new Map<unknown, LogRecord[]>();

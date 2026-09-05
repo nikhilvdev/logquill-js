@@ -138,7 +138,8 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -151,6 +152,7 @@
     "pino": "^10.3.1",
     "prettier": "^3.9.6",
     "tsup": "^8.5.1",
+    "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.11",

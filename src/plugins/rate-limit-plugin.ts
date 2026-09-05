@@ -8,6 +8,7 @@ function defaultKey(record: LogRecord): string {
   return `${record.logger}:${record.level}`;
 }
 
+/** Options for {@link RateLimitPlugin}. */
 export interface RateLimitPluginOptions {
   /** Groups records into independent windows. Default: `(logger, level)`. */
   keyFunc?: RateLimitKeyFunc;
@@ -42,8 +43,11 @@ interface Window {
  * would otherwise grow memory without limit.
  */
 export class RateLimitPlugin implements Plugin {
+  /** Records allowed per key within a `perSeconds` window before further records for that key are dropped. */
   readonly maxRecords: number;
+  /** Length, in seconds, of each key's rolling window. */
   readonly perSeconds: number;
+  /** Distinct keys tracked at once before the least-recently-seen one is evicted. */
   readonly maxKeys: number;
   private readonly keyFunc: RateLimitKeyFunc;
   private readonly clock: () => number;

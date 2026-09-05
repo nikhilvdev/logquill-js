@@ -29,4 +29,7 @@ import { LangChainAdapter } from "./langchain-adapter.js";
  * await graph.invoke(input, { callbacks: [handler], configurable: { thread_id: "1" } });
  * ```
  */
-export class LangGraphAdapter extends LangChainAdapter {}
+export class LangGraphAdapter extends LangChainAdapter {
+  /** Required by `BaseCallbackHandler` — identifies this handler to LangChain.js/LangGraph.js, not used by LogQuill itself. */
+  override name = "logquill";
+}
