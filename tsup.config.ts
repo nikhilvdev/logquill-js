@@ -15,7 +15,7 @@ export default defineConfig([
     },
   },
   {
-    // The browser entry (Phase 8): ESM only, built as its own esbuild pass
+    // The browser entry: ESM only, built as its own esbuild pass
     // with the "browser" export condition so `logger.ts`'s `"#span"` subpath
     // import (see package.json's `imports` map) resolves to
     // `core/span-browser.ts` instead of the `AsyncLocalStorage`-based

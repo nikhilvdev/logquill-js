@@ -41,4 +41,43 @@ describe("span-browser (the logquill/browser build's stack-based span context)",
     ).toThrow("boom");
     expect(currentSpanId()).toBeUndefined();
   });
+
+  it("survives an internal await for a single in-flight span", async () => {
+    let seenDuringAwait: string | undefined;
+    await runInSpan("abc123", async () => {
+      await Promise.resolve();
+      seenDuringAwait = currentSpanId();
+    });
+    expect(seenDuringAwait).toBe("abc123");
+    expect(currentSpanId()).toBeUndefined();
+  });
+
+  it("pops an async fn's span even if it rejects", async () => {
+    await expect(
+      runInSpan("risky", async () => {
+        await Promise.resolve();
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+    expect(currentSpanId()).toBeUndefined();
+  });
+
+  it("documented limitation: two concurrent runInSpan calls across an await can interleave, unlike the Node build's AsyncLocalStorage-backed version", async () => {
+    const seen: (string | undefined)[] = [];
+
+    async function run(spanId: string) {
+      return runInSpan(spanId, async () => {
+        await Promise.resolve();
+        seen.push(currentSpanId());
+      });
+    }
+
+    await Promise.all([run("first"), run("second")]);
+
+    // Both entries land on the same id — the interleaving `span-browser.ts`'s
+    // own doc comment warns about, since both spans share one stack with no
+    // way to tell which is "current" independent of call order.
+    expect(seen[0]).toBe(seen[1]);
+    expect(currentSpanId()).toBeUndefined();
+  });
 });

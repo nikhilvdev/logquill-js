@@ -18,9 +18,9 @@ export interface RedisTransportOptions extends BatchingTransportOptions {
 }
 
 /**
- * Sink for Redis, via Redis Streams (`XADD`) — as CLAUDE.md's spec puts it,
- * "a fast local buffer, a different use case from durable storage, not a
- * replacement for the others." Reach for this when you want a low-latency
+ * Sink for Redis, via Redis Streams (`XADD`) — a fast local buffer, a
+ * different use case from durable storage, not a replacement for the
+ * others. Reach for this when you want a low-latency
  * local tail (e.g. feeding a `redis-cli XREAD`-based live viewer) rather than
  * a system of record.
  *
@@ -53,13 +53,17 @@ export class RedisTransport extends BatchingTransport {
   }
 
   private async importClient(): Promise<RedisClientLike> {
-    let createClient: (options: { url: string }) => RedisClientLike & { connect(): Promise<unknown> };
+    let createClient: (options: {
+      url: string;
+    }) => RedisClientLike & { connect(): Promise<unknown> };
     try {
       // A non-literal specifier keeps this an optional peer dependency: `tsc`
       // won't try to resolve types for it, and bundlers won't force-include it.
       const moduleName = "redis";
       const mod = (await import(moduleName)) as unknown as {
-        createClient: (options: { url: string }) => RedisClientLike & { connect(): Promise<unknown> };
+        createClient: (options: {
+          url: string;
+        }) => RedisClientLike & { connect(): Promise<unknown> };
       };
       createClient = mod.createClient;
     } catch {

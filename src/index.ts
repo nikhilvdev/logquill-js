@@ -33,6 +33,14 @@ export {
 } from "./plugins/trace-context-plugin.js";
 export type { TraceContextPluginOptions } from "./plugins/trace-context-plugin.js";
 
+export { OtelSpanProcessor } from "./plugins/otel-span-processor.js";
+export type {
+  OtelSpanContextLike,
+  OtelSpanLike,
+  OtelSpanProcessorOptions,
+  OtelStatusLike,
+} from "./plugins/otel-span-processor.js";
+
 export { DEFAULT_REDACTED_KEYS, RedactPlugin } from "./plugins/redact-plugin.js";
 export type { RedactPluginOptions } from "./plugins/redact-plugin.js";
 
@@ -52,7 +60,10 @@ export { SlackAlertPlugin } from "./plugins/slack-alert-plugin.js";
 export type { SlackAlertPluginOptions, SlackSender } from "./plugins/slack-alert-plugin.js";
 
 export { PagerDutyAlertPlugin } from "./plugins/pagerduty-alert-plugin.js";
-export type { PagerDutyAlertPluginOptions, PagerDutySender } from "./plugins/pagerduty-alert-plugin.js";
+export type {
+  PagerDutyAlertPluginOptions,
+  PagerDutySender,
+} from "./plugins/pagerduty-alert-plugin.js";
 
 export { EmailAlertPlugin } from "./plugins/email-alert-plugin.js";
 export type {
@@ -79,7 +90,10 @@ export type {
 } from "./transports/sql/sqlite-transport.js";
 
 export { PostgresTransport } from "./transports/sql/postgres-transport.js";
-export type { PgClientLike, PostgresTransportOptions } from "./transports/sql/postgres-transport.js";
+export type {
+  PgClientLike,
+  PostgresTransportOptions,
+} from "./transports/sql/postgres-transport.js";
 
 export { MySQLTransport } from "./transports/sql/mysql-transport.js";
 export type { MySQLClientLike, MySQLTransportOptions } from "./transports/sql/mysql-transport.js";
@@ -105,16 +119,25 @@ export { BaseQueueTransport } from "./transports/queue/base-queue-transport.js";
 export type { BaseQueueTransportOptions } from "./transports/queue/base-queue-transport.js";
 
 export { KafkaTransport } from "./transports/queue/kafka-transport.js";
-export type { KafkaProducerLike, KafkaTransportOptions } from "./transports/queue/kafka-transport.js";
+export type {
+  KafkaProducerLike,
+  KafkaTransportOptions,
+} from "./transports/queue/kafka-transport.js";
 
 export { RabbitMQTransport } from "./transports/queue/rabbitmq-transport.js";
-export type { AmqpChannelLike, RabbitMQTransportOptions } from "./transports/queue/rabbitmq-transport.js";
+export type {
+  AmqpChannelLike,
+  RabbitMQTransportOptions,
+} from "./transports/queue/rabbitmq-transport.js";
 
 export { SQSTransport } from "./transports/queue/sqs-transport.js";
 export type { SQSClientLike, SQSTransportOptions } from "./transports/queue/sqs-transport.js";
 
 export { PubSubTransport } from "./transports/queue/pubsub-transport.js";
-export type { PubSubTopicLike, PubSubTransportOptions } from "./transports/queue/pubsub-transport.js";
+export type {
+  PubSubTopicLike,
+  PubSubTransportOptions,
+} from "./transports/queue/pubsub-transport.js";
 
 export { CloudWatchTransport } from "./transports/cloud/cloudwatch-transport.js";
 export type {
@@ -138,7 +161,10 @@ export type {
 } from "./transports/cloud/app-insights-transport.js";
 
 export { DatadogTransport } from "./transports/cloud/datadog-transport.js";
-export type { DatadogSender, DatadogTransportOptions } from "./transports/cloud/datadog-transport.js";
+export type {
+  DatadogSender,
+  DatadogTransportOptions,
+} from "./transports/cloud/datadog-transport.js";
 
 export { ElasticsearchTransport } from "./transports/cloud/elasticsearch-transport.js";
 export type {

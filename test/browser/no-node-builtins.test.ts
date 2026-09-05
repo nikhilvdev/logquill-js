@@ -2,9 +2,10 @@ import * as esbuild from "esbuild";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const NODE_BUILTIN = /^(?:node:)?(?:fs|http|https|net|tls|dns|crypto|zlib|os|path|async_hooks|module|child_process)$/;
+const NODE_BUILTIN =
+  /^(?:node:)?(?:fs|http|https|net|tls|dns|crypto|zlib|os|path|async_hooks|module|child_process)$/;
 
-describe("logquill/browser bundle (Phase 8 exit criterion)", () => {
+describe("logquill/browser bundle", () => {
   it("resolves with no Node built-in imports", async () => {
     const entry = fileURLToPath(new URL("../../src/browser.ts", import.meta.url));
 
