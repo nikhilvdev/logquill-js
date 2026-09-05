@@ -39,6 +39,35 @@ Advanced context & migration bridges:
   overridable `levelMap`, and both re-filter by the LogQuill `Logger`'s
   own `level` after the source library's filtering runs.
 
+Browser build:
+
+- A separate `logquill/browser` entry point (`import ... from "logquill/browser"`)
+  — the same `Logger`, levels, `JSONFormatter`, and plugin pipeline
+  (`ContextPlugin`/`RedactPlugin`/`PIIRedactPlugin`/`SamplingPlugin`), plus
+  `ConsoleTransport` and a new `BeaconTransport`. `FileTransport`,
+  `HTTPTransport`, every SQL/NoSQL/queue/cloud-native transport, and the
+  LangChain adapters are absent from this entry's module graph entirely —
+  not just tree-shaken — so it never pulls in a Node built-in.
+- `BeaconTransport` — batches formatted records and sends them via
+  `navigator.sendBeacon`, falling back to a `keepalive` `fetch` where
+  `sendBeacon` isn't available (a worker, an older browser, or Node);
+  pass `sender` to swap in a fake for tests. Also exported from the main
+  `"logquill"` entry.
+- One behavioral difference from the Node build: `Logger.span()`'s
+  `parentSpanId` nesting is backed by a plain stack in the browser build
+  instead of `AsyncLocalStorage` (which browsers don't have), so unlike the
+  Node build, two spans on the same `Logger` running concurrently across an
+  `await` can interleave and stamp the wrong `parentSpanId`. Fine for the
+  common case of one span in flight at a time; documented as a known
+  limitation rather than fixed, since there's no browser-standard
+  equivalent of `AsyncLocalStorage` to fall back on.
+- `Logger`'s internal use of `bindContext()`'s request-scoped context (see
+  "Advanced context & migration bridges" above) is isolated from the
+  browser build the same way: a stack-based `core/context-browser.ts`
+  swaps in for the `AsyncLocalStorage`-backed `core/context.ts`, so
+  `node:async_hooks` still never reaches `logquill/browser`. Same
+  concurrent-isolation trade-off as `Logger.span()` above.
+
 Async dispatch, shutdown & serverless safety:
 
 - Non-blocking dispatch — `Logger` calls now hand their write (and any

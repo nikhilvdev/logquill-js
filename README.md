@@ -12,9 +12,10 @@ JSON log shape with its Python sibling, [`logquill`](https://pypi.org/project/lo
 Status: pre-release, under active development. The core `Logger`, level
 filtering, non-blocking async dispatch with configurable backpressure, a
 full plugin pipeline (context/redaction/PII/tamper-evidence/sampling/
-alerting), `JSONFormatter`, and a broad transport catalog — console/file/
-HTTP, SQL, NoSQL, message queues, and cloud-native log platforms — are
-implemented; see `CHANGELOG.md` for what's landed so far.
+alerting), `JSONFormatter`, a broad transport catalog — console/file/
+HTTP, SQL, NoSQL, message queues, and cloud-native log platforms — and a
+separate `logquill/browser` build are implemented; see `CHANGELOG.md` for
+what's landed so far.
 
 ## Features
 
@@ -31,6 +32,7 @@ implemented; see `CHANGELOG.md` for what's landed so far.
 - **Non-blocking async dispatch** — a call returns before its write runs, via a bounded internal queue with a configurable backpressure policy (`dropOldest`/`dropNewest`/`block`); `logger.flush()`, `withLambda`/`withCloudFunction`/`withAzureFunction`, and `installShutdownHandlers` cover draining it before a process pauses or exits — see [Async dispatch & shutdown](#async-dispatch--shutdown)
 - **Request-scoped context propagation** — `bindContext()`, `AsyncLocalStorage`-backed, so a value set once is visible in every nested log call underneath it without threading it through every signature by hand; `RateLimitPlugin` caps a noisy loop without silencing everything else — see [Context propagation & error capture](#context-propagation--error-capture)
 - **Migration bridges** — `LogQuillWinstonTransport` (from `logquill/winston`) and `LogQuillPinoDestination` let an existing `winston`/`pino` app adopt LogQuill's transports/plugins with no call-site changes — see [Migration bridges](#migration-bridges)
+- **Browser build** — a separate `logquill/browser` entry (`Logger`, `JSONFormatter`, the plugin pipeline, `ConsoleTransport`, `BeaconTransport`) with no Node built-ins in its module graph — see [Browser build](#browser-build)
 
 ## Contents
 
@@ -52,6 +54,7 @@ implemented; see `CHANGELOG.md` for what's landed so far.
 - [Async dispatch & shutdown](#async-dispatch--shutdown)
 - [Context propagation & error capture](#context-propagation--error-capture)
 - [Migration bridges](#migration-bridges)
+- [Browser build](#browser-build)
 - [Development](#development)
 - [License](#license)
 
@@ -125,6 +128,7 @@ actually import; nothing is installed on your behalf.
 | Transport | Backend | Peer dependency | Setup |
 |---|---|---|---|
 | `ConsoleTransport` | stdout/stderr via `console.*` | *(none)* | zero-setup, isomorphic |
+| `BeaconTransport` | browser log endpoint, via `navigator.sendBeacon` | *(none, isomorphic)* | zero-setup — see [Browser build](#browser-build) |
 | `FileTransport` | local file, with rotation | *(none)* | zero-setup |
 | `HTTPTransport` | any HTTP log endpoint | *(none, uses `fetch`)* | zero-setup |
 | `SQLiteTransport` | SQLite | `better-sqlite3` | zero-setup (file or `:memory:`) |
@@ -802,6 +806,44 @@ Both re-filter by the LogQuill `Logger`'s own `level` after the
 source library's own filtering runs — the stricter of the two wins — and
 map that library's levels onto LogQuill's via a `levelMap` option,
 overridable for a non-default level configuration.
+
+## Browser build
+
+`import ... from "logquill/browser"` is a separate entry point shipping
+the same `Logger`, levels, `JSONFormatter`, and plugin pipeline
+(`ContextPlugin`/`RedactPlugin`/`PIIRedactPlugin`/`SamplingPlugin`), plus
+`ConsoleTransport` and `BeaconTransport`. `FileTransport`, `HTTPTransport`,
+every SQL/NoSQL/queue/cloud-native transport, and the LangChain adapters
+are absent from this entry's module graph entirely — not tree-shaken,
+simply never imported — so this bundle never pulls in a Node built-in.
+
+```ts
+import { BeaconTransport, ConsoleTransport, Logger } from "logquill/browser";
+
+const logger = new Logger("app", {
+  transports: [
+    new ConsoleTransport(),
+    new BeaconTransport("https://logs.example.com/ingest", { batchSize: 20 }),
+  ],
+});
+
+logger.info("page loaded", { path: location.pathname });
+window.addEventListener("pagehide", () => logger.close()); // flushes the pending beacon batch
+```
+
+`BeaconTransport` batches formatted records and sends them via
+`navigator.sendBeacon`, which — unlike `fetch` — can complete even after
+the page that queued it starts unloading; it falls back to a `keepalive`
+`fetch` where `sendBeacon` isn't available (a worker, an older browser).
+Keep `batchSize` small — `sendBeacon` payloads are capped (64KB in most
+browsers).
+
+One behavioral difference from the Node build: `Logger.span()`'s
+`parentSpanId` nesting is backed by a plain stack here instead of
+`AsyncLocalStorage` (which browsers don't have), so two spans on the same
+`Logger` running concurrently across an `await` can interleave and stamp
+the wrong `parentSpanId` — fine for the common case of one span in flight
+at a time.
 
 ## Development
 

@@ -157,6 +157,9 @@ export type {
 export { ConsoleTransport } from "./transports/console-transport.js";
 export type { ConsoleLike, ConsoleTransportOptions } from "./transports/console-transport.js";
 
+export { BeaconTransport } from "./transports/beacon-transport.js";
+export type { BeaconSender, BeaconTransportOptions } from "./transports/beacon-transport.js";
+
 export { FileTransport } from "./transports/file-transport.js";
 export type { FileTransportOptions } from "./transports/file-transport.js";
 
