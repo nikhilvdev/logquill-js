@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-06
+
+### Documentation
+
+- README's status line still said "pre-release" after 1.0.0 shipped —
+  updated to reflect the full v1.0 feature set.
+- Added the `OtelSpanProcessor` documentation (a Features bullet, a
+  Contents entry, and a runnable example under "Agentic framework
+  adapters") that was missed when that feature was added in 1.0.0.
+
 ## [1.0.0] - 2026-09-06
 
 Full v1.0 scope, as scoped in the project spec: leveled/structured logging,
