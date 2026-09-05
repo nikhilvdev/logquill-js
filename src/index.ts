@@ -12,6 +12,14 @@ export { FunctionPlugin } from "./core/plugin.js";
 
 export { ContextPlugin } from "./plugins/context-plugin.js";
 
+export { bindContext, currentContext } from "./core/context.js";
+
+export { RateLimitPlugin } from "./plugins/rate-limit-plugin.js";
+export type { RateLimitKeyFunc, RateLimitPluginOptions } from "./plugins/rate-limit-plugin.js";
+
+export { DEFAULT_PINO_LEVEL_MAP, LogQuillPinoDestination } from "./bridges/pino-destination.js";
+export type { LogQuillPinoDestinationOptions, PinoLevelMap } from "./bridges/pino-destination.js";
+
 export { RunPlugin } from "./plugins/run-plugin.js";
 export type { RunPluginOptions } from "./plugins/run-plugin.js";
 

@@ -1,3 +1,4 @@
+import { currentContext } from "#context";
 import { DispatchQueue, type DispatchQueueOptions } from "./dispatch-queue.js";
 import { Level, parseLevel, type LevelInput } from "./levels.js";
 import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
@@ -18,6 +19,24 @@ function formatSpanError(error: unknown): string {
     return `${error.name}: ${error.message}`;
   }
   return String(error);
+}
+
+/**
+ * If `meta.err` is an `Error`, replaces it with a formatted `meta.stack`
+ * (the JS analogue of `logquill-python`'s `exc_info` kwarg, which pops
+ * `exc_info` and populates `meta["stack"]` the same way). Left as-is
+ * otherwise — a non-`Error` `meta.err` is passed through unchanged rather
+ * than rejected, so a call site can't crash logging by getting this wrong.
+ */
+function withStackFromErr(meta: Record<string, unknown>): Record<string, unknown> {
+  const err = meta.err;
+  if (!(err instanceof Error)) {
+    return meta;
+  }
+  const next = { ...meta };
+  delete next.err;
+  next.stack = err.stack ?? `${err.name}: ${err.message}`;
+  return next;
 }
 
 export interface LoggerOptions {
@@ -126,7 +145,7 @@ export class Logger {
       level,
       logger: this.name,
       message,
-      meta: { ...this.baseMeta, ...meta },
+      meta: { ...this.baseMeta, ...currentContext(), ...withStackFromErr(meta) },
     });
 
     const parentSpanId = currentSpanId();

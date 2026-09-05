@@ -2,7 +2,7 @@ import { defineConfig } from "tsup";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts", "src/langchain.ts"],
+    entry: ["src/index.ts", "src/langchain.ts", "src/winston.ts"],
     format: ["esm", "cjs"],
     platform: "node",
     dts: true,

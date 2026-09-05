@@ -19,6 +19,11 @@
       "import": "./dist/langchain.mjs",
       "require": "./dist/langchain.cjs"
     },
+    "./winston": {
+      "types": "./dist/winston.d.ts",
+      "import": "./dist/winston.mjs",
+      "require": "./dist/winston.cjs"
+    },
     "./browser": {
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.mjs"
@@ -32,6 +37,11 @@
       "browser": "./src/core/span-browser.ts",
       "node": "./src/core/span.ts",
       "default": "./src/core/span.ts"
+    },
+    "#context": {
+      "browser": "./src/core/context-browser.ts",
+      "node": "./src/core/context.ts",
+      "default": "./src/core/context.ts"
     }
   },
   "engines": {
@@ -39,11 +49,11 @@
   },
   "peerDependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.0.0",
-    "@langchain/core": "^1.0.0",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-sqs": "^3.600.0",
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/pubsub": "^4.0.0",
+    "@langchain/core": "^1.0.0",
     "amqplib": "^0.10.0",
     "applicationinsights": "^3.0.0",
     "kafkajs": "^2.2.0",
@@ -51,10 +61,14 @@
     "mysql2": "^3.9.0",
     "nodemailer": "^6.9.0",
     "pg": "^8.11.0",
-    "redis": "^4.6.0 || ^5.0.0"
+    "redis": "^4.6.0 || ^5.0.0",
+    "winston-transport": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@langchain/core": {
+      "optional": true
+    },
+    "winston-transport": {
       "optional": true
     },
     "pg": {
@@ -134,10 +148,13 @@
     "esbuild": "^0.27.7",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
+    "pino": "^10.3.1",
     "prettier": "^3.9.6",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.68.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "winston": "^3.19.0",
+    "winston-transport": "^4.9.0"
   }
 }

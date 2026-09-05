@@ -30,8 +30,9 @@ what's landed so far.
 - **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/durationMs-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `traceId`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
 - **LangChain.js / LangGraph.js adapter** — `LangChainAdapter`, a `BaseCallbackHandler` that maps chain/LLM/tool/agent events onto the calls above with zero manual instrumentation, from a separate `logquill/langchain` entry point — see [Agentic framework adapters](#agentic-framework-adapters)
 - **Non-blocking async dispatch** — a call returns before its write runs, via a bounded internal queue with a configurable backpressure policy (`dropOldest`/`dropNewest`/`block`); `logger.flush()`, `withLambda`/`withCloudFunction`/`withAzureFunction`, and `installShutdownHandlers` cover draining it before a process pauses or exits — see [Async dispatch & shutdown](#async-dispatch--shutdown)
+- **Request-scoped context propagation** — `bindContext()`, `AsyncLocalStorage`-backed, so a value set once is visible in every nested log call underneath it without threading it through every signature by hand; `RateLimitPlugin` caps a noisy loop without silencing everything else — see [Context propagation & error capture](#context-propagation--error-capture)
+- **Migration bridges** — `LogQuillWinstonTransport` (from `logquill/winston`) and `LogQuillPinoDestination` let an existing `winston`/`pino` app adopt LogQuill's transports/plugins with no call-site changes — see [Migration bridges](#migration-bridges)
 - **Browser build** — a separate `logquill/browser` entry (`Logger`, `JSONFormatter`, the plugin pipeline, `ConsoleTransport`, `BeaconTransport`) with no Node built-ins in its module graph — see [Browser build](#browser-build)
-- *(planned)* `AsyncLocalStorage`-based general context propagation — see `CHANGELOG.md`
 
 ## Contents
 
@@ -47,9 +48,12 @@ what's landed so far.
   - [PII redaction](#pii-redaction)
   - [Tamper-evident logs](#tamper-evident-logs)
   - [Alerting](#alerting)
+  - [Rate limiting](#rate-limiting)
 - [Tracing & agentic logging](#tracing--agentic-logging)
 - [Agentic framework adapters](#agentic-framework-adapters)
 - [Async dispatch & shutdown](#async-dispatch--shutdown)
+- [Context propagation & error capture](#context-propagation--error-capture)
+- [Migration bridges](#migration-bridges)
 - [Browser build](#browser-build)
 - [Development](#development)
 - [License](#license)
@@ -512,6 +516,25 @@ logger.error("payment webhook failed", { orderId: "o-123" });
 inject a `sender`) follow the same shape. Write your own by extending
 `AlertingPlugin` and implementing `sendAlert(record, occurrences)`.
 
+### Rate limiting
+
+`RateLimitPlugin` drops records once a key — by default `(logger, level)`
+— exceeds `maxRecords` within a rolling `perSeconds` window, so a noisy
+loop (a retry logging the same error every iteration) can't drown out a
+logger's other messages. Each key gets its own window, so unrelated keys
+never reset in lockstep; pass `keyFunc` to key on something else, e.g. an
+error message or a `meta` field identifying the caller.
+
+```ts
+import { Logger, RateLimitPlugin } from "logquill";
+
+const logger = new Logger("app", { plugins: [new RateLimitPlugin(5, 60)] }); // at most 5 per key per minute
+
+for (let i = 0; i < 10; i++) {
+  logger.error("db connection failed"); // only the first 5 in any 60s window ship
+}
+```
+
 ## Tracing & agentic logging
 
 `.thought()/.action()/.observation()/.decision()` are `.info()` with
@@ -697,6 +720,92 @@ import { installShutdownHandlers } from "logquill";
 
 installShutdownHandlers(logger); // Node only
 ```
+
+## Context propagation & error capture
+
+`bindContext()` merges values into a request-scoped context, backed by
+`AsyncLocalStorage`: every `Logger` call underneath it — through any
+number of function calls and `await`s deep — picks them up in `meta`
+automatically, without threading them through every signature by hand.
+Concurrent async operations sharing one `Logger` never see each other's
+bound context.
+
+```ts
+import { bindContext, Logger } from "logquill";
+
+const logger = new Logger("app");
+
+await bindContext({ requestId: "abc123" }, async () => {
+  await handleRequest(); // any logging in here, or in what it calls,
+                         // gets meta.requestId = "abc123" for free
+});
+
+function handleRequest() {
+  logger.info("handled"); // meta: { requestId: "abc123" }
+}
+```
+
+Nested `bindContext()` calls merge, with the inner value winning on key
+collision — the same way an explicit call-site `meta` value always wins
+over anything bound this way.
+
+Pass an `Error` as `meta.err` and it's replaced with a formatted
+`meta.stack`, the same shape `Logger.span()` already produces internally
+for a thrown error:
+
+```ts
+try {
+  await riskyOperation();
+} catch (err) {
+  logger.error("operation failed", { err, orderId: "o-123" });
+  // meta: { orderId: "o-123", stack: "Error: ...\n    at ..." } — no meta.err
+}
+```
+
+## Migration bridges
+
+For an app already using `winston` or `pino`, LogQuill can sit alongside
+either with no call-site changes, so a migration can happen transport by
+transport instead of all at once.
+
+`LogQuillWinstonTransport` (from the separate `logquill/winston` entry
+point, since it has to extend `winston-transport`'s own class) plugs a
+LogQuill `Logger` into an existing `winston.createLogger()` as one more
+transport:
+
+```ts
+import winston from "winston";
+import { Logger } from "logquill";
+import { LogQuillWinstonTransport } from "logquill/winston";
+
+const logquill = new Logger("app");
+const winstonLogger = winston.createLogger({
+  transports: [new LogQuillWinstonTransport(logquill)],
+});
+
+winstonLogger.info("still works exactly as before", { userId: 42 });
+```
+
+`LogQuillPinoDestination` is a pino `destination` — pass it straight into
+`pino()` and pino's own NDJSON output is parsed back into LogQuill calls.
+It needs no dependency on `pino` itself (a destination only has to be
+duck-type compatible with a Node `Writable`), so it ships from the main
+entry point:
+
+```ts
+import pino from "pino";
+import { Logger, LogQuillPinoDestination } from "logquill";
+
+const logquill = new Logger("app");
+const log = pino(new LogQuillPinoDestination(logquill));
+
+log.info({ userId: 42 }, "still works exactly as before");
+```
+
+Both re-filter by the LogQuill `Logger`'s own `level` after the
+source library's own filtering runs — the stricter of the two wins — and
+map that library's levels onto LogQuill's via a `levelMap` option,
+overridable for a non-default level configuration.
 
 ## Browser build
 

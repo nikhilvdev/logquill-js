@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CollectingTransport, Level, Logger, type LogRecord, type Plugin } from "../../src/index.js";
+import {
+  CollectingTransport,
+  Level,
+  Logger,
+  type LogRecord,
+  type Plugin,
+} from "../../src/index.js";
 
 describe("Logger", () => {
   it("produces a well-formed record", () => {
@@ -180,7 +186,9 @@ describe("Logger", () => {
   });
 
   it("a function passed via the constructor's plugins array is wrapped the same way", () => {
-    const logger = new Logger("app.test", { plugins: [(record) => ({ ...record, message: "replaced" })] });
+    const logger = new Logger("app.test", {
+      plugins: [(record) => ({ ...record, message: "replaced" })],
+    });
 
     expect(logger.info("original")?.message).toBe("replaced");
   });
@@ -270,6 +278,45 @@ describe("Logger", () => {
 
       expect(transport.records).toHaveLength(1);
       expect(transport.closed).toBe(true);
+    });
+  });
+
+  describe("meta.err -> meta.stack capture", () => {
+    it("replaces an Error in meta.err with a formatted meta.stack", () => {
+      const logger = new Logger("app.test");
+
+      const record = logger.error("failed", { err: new Error("boom"), userId: 42 });
+
+      expect(record?.meta.err).toBeUndefined();
+      expect(record?.meta.userId).toBe(42);
+      expect(record?.meta.stack).toContain("Error: boom");
+    });
+
+    it("falls back to a formatted name/message when the Error has no stack", () => {
+      const logger = new Logger("app.test");
+      const err = new Error("boom");
+      delete err.stack;
+
+      const record = logger.error("failed", { err });
+
+      expect(record?.meta.stack).toBe("Error: boom");
+    });
+
+    it("leaves a non-Error meta.err untouched", () => {
+      const logger = new Logger("app.test");
+
+      const record = logger.error("failed", { err: "just a string" });
+
+      expect(record?.meta.err).toBe("just a string");
+      expect(record?.meta.stack).toBeUndefined();
+    });
+
+    it("leaves records without meta.err unaffected", () => {
+      const logger = new Logger("app.test");
+
+      const record = logger.info("fine");
+
+      expect(record?.meta.stack).toBeUndefined();
     });
   });
 });
