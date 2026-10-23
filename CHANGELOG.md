@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `FileTransport` `encryptKey` option: encrypts each line as a Fernet token
+  before writing, in the same format `logquill-python`'s `encrypt_key`
+  uses, so either package can decrypt the other's files. `generateFernetKey()`
+  and `fernetDecrypt()` are exported for creating a key and reading lines
+  back. A malformed key fails at construction with a message saying how to
+  generate one.
+- `FileTransport` `compression: "gz"` option: gzips each file as it is
+  rotated out, so backups become `app.log.1.gz`, `app.log.2.gz`, and so on.
+
 ## [1.0.1] - 2026-09-06
 
 ### Documentation
