@@ -1,8 +1,10 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FileTransport, Logger } from "../../src/index.js";
+import { FileTransport, Logger, fernetDecrypt, generateFernetKey } from "../../src/index.js";
+import { fernetEncrypt } from "../../src/transports/fernet.js";
 
 let dir: string;
 
@@ -99,5 +101,73 @@ describe("FileTransport", () => {
     transport.close();
 
     expect(existsSync(path)).toBe(true);
+  });
+});
+
+describe("FileTransport encryptKey", () => {
+  // Throwaway key and token minted once by Python's `cryptography.fernet.Fernet`, used only to prove
+  // the two packages read each other's files. Not a credential for anything.
+  const pythonKey = "oy8rs0xSQbV3bKVkNG-w8NyXs_SMTP_VhrH1t1gwDKE="; // ggignore
+  const pythonToken = // ggignore
+    "gAAAAABq2t72U46ao5CH2n4XEz3MG9DiN1GiNc3iYk_dXe0PGAdDXCDd5fFRyqJUAAvNXlu0iNnn-ZoBY-5Q5D24BBscbBKN5wyhCyysB6snm0XcSr9XLX_MX5i24yCj_diZEteCwP4h"; // ggignore
+
+  it("decrypts a token written by logquill-python's Fernet", () => {
+    expect(fernetDecrypt(pythonKey, pythonToken)).toBe('{"message":"héllo from python"}');
+  });
+
+  it("writes one decryptable token per line and never the plaintext", async () => {
+    const path = join(dir, "secret.log");
+    const key = generateFernetKey();
+    const transport = new FileTransport(path, { encryptKey: key });
+    const logger = new Logger("app.test", { transports: [transport] });
+
+    logger.info("top secret", { ssn: "123-45-6789" });
+    logger.info("second");
+    await logger.flush();
+    transport.close();
+
+    const raw = readFileSync(path, "utf8");
+    expect(raw).not.toContain("top secret");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect((JSON.parse(fernetDecrypt(key, lines[0] ?? "")) as { message: string }).message).toBe(
+      "top secret",
+    );
+    expect((JSON.parse(fernetDecrypt(key, lines[1] ?? "")) as { message: string }).message).toBe(
+      "second",
+    );
+  });
+
+  it("rejects a malformed key at construction, saying how to make one", () => {
+    expect(() => new FileTransport(join(dir, "bad.log"), { encryptKey: "nope" })).toThrow(
+      /generateFernetKey/,
+    );
+  });
+
+  it("refuses the wrong key and an edited line", () => {
+    const token = fernetEncrypt(generateFernetKey(), "hello");
+    expect(() => fernetDecrypt(generateFernetKey(), token)).toThrow(/wrong key/);
+    const key = generateFernetKey();
+    const edited = fernetEncrypt(key, "hello").slice(0, -6) + "AAAAA=";
+    expect(() => fernetDecrypt(key, edited)).toThrow();
+  });
+});
+
+describe("FileTransport compression", () => {
+  it("gzips rotated backups and shifts them as .1.gz, .2.gz", async () => {
+    const path = join(dir, "app.log");
+    const transport = new FileTransport(path, { maxBytes: 1, backupCount: 2, compression: "gz" });
+    const logger = new Logger("app.test", { transports: [transport] });
+
+    logger.info("first");
+    logger.info("second");
+    logger.info("third");
+    await logger.flush();
+    transport.close();
+
+    expect(existsSync(`${path}.1`)).toBe(false);
+    expect(gunzipSync(readFileSync(`${path}.1.gz`)).toString()).toContain("third");
+    expect(gunzipSync(readFileSync(`${path}.2.gz`)).toString()).toContain("second");
+    expect(existsSync(`${path}.3.gz`)).toBe(false);
   });
 });

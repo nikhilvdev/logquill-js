@@ -178,11 +178,36 @@ logger.close(); // flushes the HTTPTransport's pending batch, closes the FileTra
 `process.stdout`/`stderr`), so it works unmodified in a browser bundle.
 Colorizing defaults to on, unless the [`NO_COLOR`](https://no-color.org)
 environment variable is set. `FileTransport` rotates the file once it
-exceeds `maxBytes`, keeping `backupCount` numbered backups (`.1`, `.2`, …).
+exceeds `maxBytes`, keeping `backupCount` numbered backups (`.1`, `.2`, …);
+`compression: "gz"` gzips each backup as it is rotated out (`.1.gz`, `.2.gz`, …).
 `HTTPTransport` batches formatted lines and POSTs them as
 newline-delimited JSON once `batchSize` is reached, or on `.close()`/
 `.flush()`; pass `sender` to swap in a fake for tests or a different
 backend.
+
+A log file on disk is usually not encrypted at rest the way a cloud sink is.
+Pass `encryptKey` to `FileTransport` to encrypt every line as a
+[Fernet](https://github.com/fernet/spec/blob/master/Spec.md) token — the
+same format `logquill-python`'s `encrypt_key` writes, so either package can
+read the other's files:
+
+```ts
+import { FileTransport, Logger, fernetDecrypt, generateFernetKey } from "logquill";
+import { readFileSync } from "node:fs";
+
+const key = generateFernetKey(); // keep this somewhere other than the log file
+const logger = new Logger("app", {
+  transports: [new FileTransport("app.log", { encryptKey: key })],
+});
+logger.info("user signed up", { userId: 42 });
+await logger.close();
+
+for (const line of readFileSync("app.log", "utf8").trim().split("\n")) {
+  console.log(fernetDecrypt(key, line)); // the JSON record
+}
+```
+
+`fernetDecrypt` throws if the key is wrong or a line was edited.
 
 Write your own by subclassing `Transport` (implement `write(formatted,
 record)`; `format()` and `close()` have defaults), or use
