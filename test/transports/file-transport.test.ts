@@ -105,10 +105,11 @@ describe("FileTransport", () => {
 });
 
 describe("FileTransport encryptKey", () => {
-  // Minted by Python's `cryptography.fernet.Fernet` — proves files interoperate across the two packages.
-  const pythonKey = "oy8rs0xSQbV3bKVkNG-w8NyXs_SMTP_VhrH1t1gwDKE=";
-  const pythonToken =
-    "gAAAAABq2t72U46ao5CH2n4XEz3MG9DiN1GiNc3iYk_dXe0PGAdDXCDd5fFRyqJUAAvNXlu0iNnn-ZoBY-5Q5D24BBscbBKN5wyhCyysB6snm0XcSr9XLX_MX5i24yCj_diZEteCwP4h";
+  // Throwaway key and token minted once by Python's `cryptography.fernet.Fernet`, used only to prove
+  // the two packages read each other's files. Not a credential for anything.
+  const pythonKey = "oy8rs0xSQbV3bKVkNG-w8NyXs_SMTP_VhrH1t1gwDKE="; // ggignore
+  const pythonToken = // ggignore
+    "gAAAAABq2t72U46ao5CH2n4XEz3MG9DiN1GiNc3iYk_dXe0PGAdDXCDd5fFRyqJUAAvNXlu0iNnn-ZoBY-5Q5D24BBscbBKN5wyhCyysB6snm0XcSr9XLX_MX5i24yCj_diZEteCwP4h"; // ggignore
 
   it("decrypts a token written by logquill-python's Fernet", () => {
     expect(fernetDecrypt(pythonKey, pythonToken)).toBe('{"message":"héllo from python"}');
@@ -129,12 +130,18 @@ describe("FileTransport encryptKey", () => {
     expect(raw).not.toContain("top secret");
     const lines = raw.trim().split("\n");
     expect(lines).toHaveLength(2);
-    expect((JSON.parse(fernetDecrypt(key, lines[0] ?? "")) as { message: string }).message).toBe("top secret");
-    expect((JSON.parse(fernetDecrypt(key, lines[1] ?? "")) as { message: string }).message).toBe("second");
+    expect((JSON.parse(fernetDecrypt(key, lines[0] ?? "")) as { message: string }).message).toBe(
+      "top secret",
+    );
+    expect((JSON.parse(fernetDecrypt(key, lines[1] ?? "")) as { message: string }).message).toBe(
+      "second",
+    );
   });
 
   it("rejects a malformed key at construction, saying how to make one", () => {
-    expect(() => new FileTransport(join(dir, "bad.log"), { encryptKey: "nope" })).toThrow(/generateFernetKey/);
+    expect(() => new FileTransport(join(dir, "bad.log"), { encryptKey: "nope" })).toThrow(
+      /generateFernetKey/,
+    );
   });
 
   it("refuses the wrong key and an edited line", () => {
