@@ -188,6 +188,7 @@ export type { BeaconSender, BeaconTransportOptions } from "./transports/beacon-t
 
 export { FileTransport } from "./transports/file-transport.js";
 export type { FileTransportOptions } from "./transports/file-transport.js";
+export { fernetDecrypt, generateFernetKey } from "./transports/fernet.js";
 
 export { HTTPTransport } from "./transports/http-transport.js";
 export type { HTTPTransportOptions, Sender } from "./transports/http-transport.js";
