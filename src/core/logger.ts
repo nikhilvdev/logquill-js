@@ -2,7 +2,12 @@ import { currentContext } from "#context";
 import { DispatchQueue, type DispatchQueueOptions } from "./dispatch-queue.js";
 import { Level, parseLevel, type LevelInput } from "./levels.js";
 import { FunctionPlugin, type MiddlewareFunc, type Plugin } from "./plugin.js";
-import { createRecord, type LogRecord } from "./records.js";
+import { callerInfo, OptLogger, resolveLazy, type DispatchOptions } from "./opt.js";
+import { applyContentPolicy, parseContentPolicy, type ContentCapturePolicy } from "./privacy.js";
+import { buildLlmBlock, createRecord, type LlmCallOptions, type LogRecord } from "./records.js";
+import { RetryTracker } from "./retry.js";
+import { snapshot, stateDiff, UNCAPTURED } from "./state-diff.js";
+import { isEnabled } from "./toggle.js";
 import { currentSpanId, newSpanId, runInSpan } from "#span";
 import type { Transport } from "../transports/transport.js";
 
@@ -12,6 +17,15 @@ export interface SpanOptions extends Record<string, unknown> {
   spanId?: string;
   /** Adopt a parent id explicitly, overriding auto-nesting from an enclosing `span()` block. */
   parentSpanId?: string;
+  /**
+   * Called on entering and on leaving the block; what changed between the two
+   * is recorded as `meta.state_diff` (`{ before, after }`, only the keys that
+   * changed when both are plain objects; omitted if nothing did). Values are
+   * deep-copied, so an in-place mutation is seen. A state that can't be copied,
+   * or a callback that throws, just means no `state_diff`. It is a content
+   * field, so the logger's `contentPolicy` applies to it.
+   */
+  captureState?: () => unknown;
 }
 
 function formatSpanError(error: unknown): string {
@@ -39,6 +53,22 @@ function withStackFromErr(meta: Record<string, unknown>): Record<string, unknown
   return next;
 }
 
+// Shared, so a plain log call (no `opt()`) allocates no options object.
+const NO_OPTIONS: DispatchOptions = Object.freeze({});
+
+/** `meta` with `state_diff` added when the span's captured state changed between entering and leaving it. */
+function withStateDiff(
+  meta: Record<string, unknown>,
+  captureState: (() => unknown) | undefined,
+  before: unknown,
+): Record<string, unknown> {
+  if (!captureState || before === UNCAPTURED) return meta;
+  const after = snapshot(captureState);
+  if (after === UNCAPTURED) return meta;
+  const diff = stateDiff(before, after);
+  return diff && !("state_diff" in meta) ? { ...meta, state_diff: diff } : meta;
+}
+
 /** Options for the {@link Logger} constructor. */
 export interface LoggerOptions {
   /** Minimum level that reaches a transport; records below it are dropped before any plugin runs. Default `INFO`. */
@@ -51,6 +81,14 @@ export interface LoggerOptions {
   meta?: Record<string, unknown>;
   /** Bounds and backpressure policy for the internal async dispatch queue. See `DispatchQueueOptions`. */
   queue?: DispatchQueueOptions;
+  /**
+   * What happens to the content fields — an LLM call's prompt and completion, a
+   * tool call's arguments and result, a span's captured state — before any
+   * plugin or transport sees them. **`"off"` by default**: they are replaced with
+   * a placeholder. `"hash"` replaces each with a stable `sha256:` digest,
+   * `"truncate"` keeps its first 200 characters, `"full"` passes it through.
+   */
+  contentPolicy?: ContentCapturePolicy;
 }
 
 /**
@@ -67,13 +105,18 @@ export class Logger {
   readonly transports: Transport[];
   /** Every plugin registered via `.use()`, in registration order. */
   readonly plugins: Plugin[];
+  /** What happens to content fields on their way to a transport. See `LoggerOptions.contentPolicy`. */
+  readonly contentPolicy: ContentCapturePolicy;
   private currentLevel: Level;
   private readonly baseMeta: Record<string, unknown>;
+  private readonly retries = new RetryTracker();
+  private readonly optCache = new Map<string, OptLogger>();
   private dispatchQueue: DispatchQueue;
 
   constructor(name: string, options: LoggerOptions = {}) {
     this.name = name;
     this.currentLevel = parseLevel(options.level ?? Level.INFO);
+    this.contentPolicy = parseContentPolicy(options.contentPolicy ?? "off");
     this.transports = options.transports ? [...options.transports] : [];
     this.plugins = [];
     for (const plugin of options.plugins ?? []) {
@@ -139,9 +182,31 @@ export class Logger {
       transports: this.transports,
       plugins: this.plugins,
       meta: { ...this.baseMeta, ...meta },
+      contentPolicy: this.contentPolicy,
     });
     child.dispatchQueue = this.dispatchQueue;
     return child;
+  }
+
+  /**
+   * Stamps `retry_count` on a tool `.action()` that reopens a call which hasn't
+   * succeeded yet, and ends the chain on a successful `.observation()` for it.
+   * Only records naming their tool in `meta.tool` take part. Returns `meta`
+   * unchanged, or a copy with `retry_count` added (the caller's object is never
+   * mutated).
+   */
+  private trackRetries(level: Level, meta: Record<string, unknown>): Record<string, unknown> {
+    const { tool, tool_call_id: callId, kind } = meta;
+    if (typeof tool !== "string" || tool === "") return meta;
+    const id = typeof callId === "string" ? callId : undefined;
+    if (kind === "action") {
+      const count = this.retries.opened(currentSpanId(), tool, id);
+      return count > 0 && !("retry_count" in meta) ? { ...meta, retry_count: count } : meta;
+    }
+    if (kind === "observation" && level < Level.ERROR && !("error" in meta)) {
+      this.retries.succeeded(currentSpanId(), tool, id);
+    }
+    return meta;
   }
 
   private notifyError(plugin: Plugin, error: unknown, record: LogRecord): void {
@@ -153,9 +218,25 @@ export class Logger {
     }
   }
 
-  private dispatch(level: Level, message: string, meta: Record<string, unknown>): LogRecord | null {
-    if (level < this.currentLevel) {
+  /**
+   * @internal Builds and dispatches one record. Public only so `OptLogger` can
+   * reach it; call `info()` and friends instead.
+   */
+  dispatch(
+    level: Level,
+    message: string,
+    callMeta: Record<string, unknown>,
+    options: DispatchOptions = NO_OPTIONS,
+  ): LogRecord | null {
+    if (level < this.currentLevel || !isEnabled(this.name)) {
       return null;
+    }
+
+    let meta = options.lazy ? resolveLazy(callMeta) : callMeta;
+    meta = this.trackRetries(level, meta);
+    if (options.depth !== undefined && !("caller" in meta)) {
+      const caller = callerInfo(options.depth);
+      if (caller) meta = { ...meta, caller };
     }
 
     let record = createRecord({
@@ -163,12 +244,16 @@ export class Logger {
       logger: this.name,
       message,
       meta: { ...this.baseMeta, ...currentContext(), ...withStackFromErr(meta) },
+      llm: options.llm,
     });
 
     const parentSpanId = currentSpanId();
     if (parentSpanId !== undefined) {
       record.meta.parent_span_id ??= parentSpanId;
     }
+
+    // Before any plugin, so none (not even a custom one) can see raw content.
+    applyContentPolicy(record.meta, this.contentPolicy);
 
     for (const plugin of this.plugins) {
       let result: LogRecord | null;
@@ -266,6 +351,40 @@ export class Logger {
   }
 
   /**
+   * Logs one LLM call as an `.action()` carrying the record's first-class `llm`
+   * block (`model`, `tokens_in`, `tokens_out`, `cost_usd`, `latency_ms`,
+   * `finish_reason`) — the fields cost and latency dashboards read. Any you leave
+   * out are simply absent; one of the wrong type is dropped with a warning
+   * rather than thrown. Extra call-site `meta` goes in the second argument.
+   * Don't put prompt or completion text in `meta` unless you mean every
+   * transport to receive it; use `meta.input_messages`/`output_messages` and let
+   * `contentPolicy` govern them.
+   */
+  llmCall(options: LlmCallOptions, meta: Record<string, unknown> = {}): LogRecord | null {
+    const { message = "llm_call", ...fields } = options;
+    const llm = buildLlmBlock(fields);
+    return this.dispatch(Level.INFO, message, { kind: "action", ...meta }, llm ? { llm } : {});
+  }
+
+  /**
+   * A view of this logger with per-call options: `lazy: true` defers
+   * function-valued `meta` entries until the record is really going to be
+   * emitted, `depth: N` adds `meta.caller` naming the code `N` frames above the
+   * direct caller. The view is cached per combination, so calling this inline on
+   * every log call costs no allocation. See {@link OptLogger}.
+   */
+  opt(options: { lazy?: boolean; depth?: number } = {}): OptLogger {
+    const lazy = options.lazy ?? false;
+    const key = `${String(lazy)}:${String(options.depth ?? "")}`;
+    const cached = this.optCache.get(key);
+    if (cached) return cached;
+    const view = new OptLogger(this, { lazy, depth: options.depth });
+    // shortcut: at most 32 cached views so a dynamically computed `depth` can't grow this without bound; past that, a fresh uncached view per call
+    if (this.optCache.size < 32) this.optCache.set(key, view);
+    return view;
+  }
+
+  /**
    * `await logger.span("callLlm", async () => {...})` — runs `fn`, and on
    * settling (success or throw) emits one record for the span itself
    * carrying `meta.span_id` and `meta.duration_ms`. Every record logged
@@ -282,16 +401,37 @@ export class Logger {
    * adapter translating an id it already received).
    */
   async span<T>(name: string, fn: () => T | Promise<T>, options: SpanOptions = {}): Promise<T> {
-    const { spanId: explicitSpanId, parentSpanId: explicitParentSpanId, ...meta } = options;
+    const {
+      spanId: explicitSpanId,
+      parentSpanId: explicitParentSpanId,
+      captureState,
+      ...meta
+    } = options;
     const spanId = explicitSpanId ?? newSpanId();
+    const stateBefore = captureState ? snapshot(captureState) : UNCAPTURED;
     const start = performance.now();
 
     try {
       const result = await runInSpan(spanId, () => fn());
-      this.finishSpan(name, spanId, explicitParentSpanId, performance.now() - start, meta);
+      const duration = performance.now() - start;
+      this.finishSpan(
+        name,
+        spanId,
+        explicitParentSpanId,
+        duration,
+        withStateDiff(meta, captureState, stateBefore),
+      );
       return result;
     } catch (error) {
-      this.finishSpan(name, spanId, explicitParentSpanId, performance.now() - start, meta, error);
+      const duration = performance.now() - start;
+      this.finishSpan(
+        name,
+        spanId,
+        explicitParentSpanId,
+        duration,
+        withStateDiff(meta, captureState, stateBefore),
+        error,
+      );
       throw error;
     }
   }

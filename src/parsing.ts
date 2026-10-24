@@ -9,11 +9,12 @@ import { createInterface } from "node:readline";
  *     parse("app.log", TEXT_LOG_PATTERN, { cast: TEXT_LOG_CASTS })
  */
 export const TEXT_LOG_PATTERN =
-  /^(?<timestamp>\S+) (?<level>[A-Z]+)\s+(?<logger>[^:\s]+): (?<message>.*?)(?: (?<meta>\{.*\}))?$/;
+  /^(?<timestamp>\S+) (?<level>[A-Z]+)\s+(?<logger>[^:\s]+): (?<message>.*?)(?: llm=(?<llm>\{[^{}]*\}))?(?: (?<meta>\{.*\}))?$/;
 
-/** `cast` mapping that decodes the `meta` group of {@link TEXT_LOG_PATTERN} from JSON. */
+/** `cast` mapping that decodes the `meta` and `llm` groups of {@link TEXT_LOG_PATTERN} from JSON. */
 export const TEXT_LOG_CASTS: Record<string, (text: string) => unknown> = {
   meta: (text) => JSON.parse(text) as unknown,
+  llm: (text) => JSON.parse(text) as unknown,
 };
 
 /** Options for {@link parse}. */

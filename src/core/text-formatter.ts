@@ -36,6 +36,8 @@ export function formatText(record: Partial<LogRecord>): string {
   if (stack !== undefined) delete meta.stack;
 
   let line = `${record.timestamp ?? "?"} ${(record.level ?? "?").padEnd(5)} ${record.logger ?? "?"}: ${record.message ?? ""}`;
+  if (record.llm && Object.keys(record.llm).length > 0)
+    line += ` llm=${dumpMeta({ ...record.llm })}`;
   if (Object.keys(meta).length > 0) line += ` ${dumpMeta(meta)}`;
   if (stack !== undefined) line += `\n${stack.replace(/\n+$/, "")}`;
   return line;

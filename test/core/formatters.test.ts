@@ -128,3 +128,33 @@ describe("parse", () => {
     ).rejects.toThrow(/line 2/);
   });
 });
+
+describe("llm block", () => {
+  const withLlm = (): LogRecord => ({
+    ...record("called", { provider: "openai" }),
+    llm: { model: "gpt-4o", tokens_in: 10, cost_usd: 0.0002 },
+  });
+
+  it("TextFormatter prints it as llm={...} before meta, like logquill-python", () => {
+    expect(new TextFormatter().format(withLlm())).toBe(
+      '2026-01-01T00:00:00.000Z INFO  app.api: called llm={"model":"gpt-4o","tokens_in":10,"cost_usd":0.0002} {"provider":"openai"}',
+    );
+  });
+
+  it("LogfmtFormatter flattens it to llm.* pairs before meta", () => {
+    expect(new LogfmtFormatter().format(withLlm())).toBe(
+      "timestamp=2026-01-01T00:00:00.000Z level=INFO logger=app.api message=called llm.model=gpt-4o llm.tokens_in=10 llm.cost_usd=0.0002 provider=openai",
+    );
+  });
+
+  it("omits it when empty, and round-trips through parse()", async () => {
+    expect(new TextFormatter().format({ ...record("m"), llm: {} })).not.toContain("llm=");
+    const [entry] = await collect(
+      parse([new TextFormatter().format(withLlm())], TEXT_LOG_PATTERN, { cast: TEXT_LOG_CASTS }),
+    );
+    expect(entry).toMatchObject({
+      llm: { model: "gpt-4o", tokens_in: 10, cost_usd: 0.0002 },
+      meta: { provider: "openai" },
+    });
+  });
+});

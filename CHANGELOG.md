@@ -22,6 +22,11 @@ This release changes the record contract shared with `logquill-python`. See
 - SQL transports write `run_id`, `span_id`, `parent_span_id` and `trace_id`
   columns, and `DynamoDBTransport` items use the same attribute names (the
   partition key is `run_id`). Existing tables need migrating.
+- Content fields are now governed by a per-logger `contentPolicy`, **off by
+  default**: `meta.input_messages`, `output_messages`, `system_instructions`,
+  `tool_arguments`, `tool_result` and `state_diff` are replaced with a
+  placeholder before any plugin or transport sees them. Pass
+  `contentPolicy: "full"` to keep the old pass-through, or `"hash"`/`"truncate"`.
 - `TamperEvidentPlugin` hashes the same bytes `logquill-python` does
   (`json.dumps(sort_keys=True)` formatting, ASCII escapes) and now also covers
   `schema_version` and `llm`, so a chain written by either package verifies in
@@ -29,6 +34,25 @@ This release changes the record contract shared with `logquill-python`. See
 
 ### Added
 
+- `logger.llmCall({ model, tokensIn, tokensOut, costUsd, latencyMs, finishReason })`
+  logs an LLM call as an `.action()` with the first-class `llm` block. A field of
+  the wrong type is dropped with a warning rather than thrown.
+- `logger.opt({ lazy, depth })`: `lazy` defers function-valued `meta` until the
+  record is really going to be emitted; `depth` adds `meta.caller` naming the
+  code that logged, for use inside wrappers.
+- `disable(name)` / `enable(name)`: silence a library's loggers by name prefix,
+  most specific rule wins, so a library can be quiet by default.
+- `contentPolicy` (`"off"` | `"hash"` | `"truncate"` | `"full"`) on `Logger`, and
+  the `CONTENT_FIELDS` / `FIELD_CLASSES` registries it uses. `"hash"` digests are
+  the same ones `logquill-python` produces.
+- `meta.retry_count` is stamped automatically on a tool `.action()` that reopens
+  a call which has not succeeded yet.
+- `span(name, fn, { captureState })` records what changed in the captured state
+  as `meta.state_diff`.
+- `installSignalLevelHandler` (`SIGUSR2`), `LevelFileWatcher` and
+  `LevelEnvWatcher` change a logger's level without a restart.
+- `TextFormatter` and `LogfmtFormatter` now render the `llm` block, and the
+  text-log parser reads it back.
 - `parseRecord()` reads a decoded log line from either package, labels a 1.x
   record `"1.0"`, renames the camelCase named `meta` keys logquill-js 1.x
   wrote, and refuses a newer major version with a message saying to upgrade.

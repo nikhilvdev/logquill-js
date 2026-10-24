@@ -99,6 +99,7 @@ export class LogfmtFormatter implements Formatter {
       `logger=${quote(record.logger)}`,
       `message=${quote(record.message)}`,
     ];
+    if (record.llm && Object.keys(record.llm).length > 0) flatten("llm", record.llm, 1, pairs);
     for (const [metaKey, value] of Object.entries(record.meta)) {
       const k = key(metaKey);
       flatten(RESERVED_KEYS.includes(k) ? `meta.${k}` : k, value, 1, pairs);
