@@ -61,6 +61,7 @@ the full history.
 - [Tracing & agentic logging](#tracing--agentic-logging)
 - [Agentic framework adapters](#agentic-framework-adapters)
   - [OpenTelemetry-native integration](#opentelemetry-native-integration)
+  - [Exporting to an OpenTelemetry collector](#exporting-to-an-opentelemetry-collector)
 - [Async dispatch & shutdown](#async-dispatch--shutdown)
   - [Kubernetes](#kubernetes)
 - [Context propagation & error capture](#context-propagation--error-capture)
@@ -936,8 +937,73 @@ entry point, not a separate subpath — it's fully duck-typed against the
 for its own OTel lookup, so it never imports `@opentelemetry/api` or
 `@opentelemetry/sdk-trace-base` for real. Non-empty span attributes are
 copied onto `meta.attributes` (configurable via `attributesKey`) verbatim;
-mapping onto the OTel `gen_ai.*` semantic conventions is left to the
-planned `OTLPTransport` (v2.0).
+mapping onto the OTel `gen_ai.*` semantic conventions is what
+`OTLPTransport` does, in the other direction (below).
+
+### Exporting to an OpenTelemetry collector
+
+`OtelSpanProcessor` brings OpenTelemetry spans _into_ LogQuill. `OTLPTransport`
+goes the other way: it turns LogQuill's own agent tracing into real OpenTelemetry
+spans, so a run shows up as a trace in Jaeger, Tempo, Honeycomb, Datadog, Grafana
+or any OTLP collector, with the standard `gen_ai.*` attributes that cost and
+latency dashboards already know.
+
+```ts
+import { Logger, OTLPTransport, OTelLogsTransport, RunPlugin } from "logquill";
+
+const logger = new Logger("agent", {
+  transports: [
+    new OTLPTransport({ endpoint: "http://localhost:4318/v1/traces", serviceName: "my-agent" }),
+    new OTelLogsTransport({ endpoint: "http://localhost:4318/v1/logs", serviceName: "my-agent" }),
+  ],
+  plugins: [new RunPlugin()],
+});
+
+await logger.span(
+  "run",
+  async () => {
+    logger.llmCall({ model: "gpt-4o", tokensIn: 812, tokensOut: 96, finishReason: "stop" });
+    logger.action("search the docs", { tool: "search", tool_call_id: "c1" });
+  },
+  { operation: "invoke_agent", agent_name: "planner" },
+);
+await logger.close(); // sends what the batch processors are holding, then shuts the exporters down
+```
+
+| LogQuill record                                                         | OpenTelemetry span                                                                 |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Logger.span()` that sets `agent_name` (or `operation: "invoke_agent"`) | `invoke_agent {agent}`                                                             |
+| any other `Logger.span()`                                               | its own name, no GenAI operation                                                   |
+| `.action()` with `meta.tool`                                            | `execute_tool {tool}`                                                              |
+| a record with an `llm` block (`llmCall()`)                              | `chat {model}` with `gen_ai.usage.input_tokens`, `output_tokens`, `finish_reasons` |
+
+Spans use the ids the records already carry (`span_id`, `parent_span_id`) and their
+timing (`duration_ms`), so the tree a collector shows is exactly the tree that was
+logged, and the spans of one `run_id` share a trace. Every other record is ignored by
+`OTLPTransport`; `OTelLogsTransport` sends every record as an OTLP log record, carrying the trace and
+span id of the span it belongs to (a `span()` record its own span, any other record the span it was
+logged inside), so a collector can join a log line to its span. A line logged outside any span has
+`run_id`/`trace_id` as attributes.
+
+Two things are on purpose. **Prompt and completion text is never exported** unless you
+pass `captureContent: true` (or set `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`),
+and the logger's `contentPolicy` still applies first, so with the default policy there is
+nothing to export. **Attribute names are pinned** to one release of the (still experimental)
+GenAI conventions, in one file; set `semconvVersion: "legacy"` for the earlier
+`gen_ai.system`/`prompt_tokens` names, or follow `OTEL_SEMCONV_STABILITY_OPT_IN`. Old and new
+names are never emitted together.
+
+Both transports need the optional OpenTelemetry packages
+(`npm install @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-http`
+for spans; `@opentelemetry/sdk-logs @opentelemetry/exporter-logs-otlp-http` for logs). Tested
+against both OpenTelemetry JS lines: `sdk-trace-base` 2.0 to 2.12 with `sdk-logs` 0.220 to 0.223
+(`sdk-logs` must be 0.220 or newer), and the 3.0 line (`@opentelemetry/sdk-trace` 3.0,
+`sdk-logs` 3.0, `api` 1.10), which ships the tracing SDK as `@opentelemetry/sdk-trace`
+instead of `sdk-trace-base`; either package is found. Export is batched off the caller's
+path; pass `processor: "simple"` to export each one immediately, and `spanExporter` /
+`logExporter` to use any OpenTelemetry exporter instead of OTLP/HTTP. Call
+`await logger.close()` (or use `installShutdownHandlers`) before the process exits: it waits
+for the final export.
 
 ## Async dispatch & shutdown
 

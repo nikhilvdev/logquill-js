@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   CollectingTransport,
   Level,
@@ -278,6 +278,45 @@ describe("Logger", () => {
 
       expect(transport.records).toHaveLength(1);
       expect(transport.closed).toBe(true);
+    });
+  });
+
+  describe("close() and slow transports", () => {
+    it("waits for a transport's own flush() before closing it, so a final send is not cut off", async () => {
+      const order: string[] = [];
+      const transport = new CollectingTransport();
+      Object.assign(transport, {
+        flush: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          order.push("flushed");
+        },
+      });
+      const originalClose = transport.close.bind(transport);
+      transport.close = () => {
+        order.push("closed");
+        originalClose();
+      };
+      const logger = new Logger("app.test", { transports: [transport] });
+
+      logger.info("last one out");
+      await logger.close();
+
+      expect(order).toEqual(["flushed", "closed"]);
+    });
+
+    it("a transport whose flush() rejects is reported, and everything is still closed", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const bad = new CollectingTransport();
+      Object.assign(bad, { flush: () => Promise.reject(new Error("collector down")) });
+      const good = new CollectingTransport();
+      const logger = new Logger("app.test", { transports: [bad, good] });
+
+      await expect(logger.close()).resolves.toBeUndefined();
+
+      expect(bad.closed).toBe(true);
+      expect(good.closed).toBe(true);
+      expect(error).toHaveBeenCalledOnce();
+      error.mockRestore();
     });
   });
 

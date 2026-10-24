@@ -10,23 +10,53 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langchain": {
-      "types": "./dist/langchain.d.ts",
-      "import": "./dist/langchain.mjs",
-      "require": "./dist/langchain.cjs"
+      "import": {
+        "types": "./dist/langchain.d.ts",
+        "default": "./dist/langchain.mjs"
+      },
+      "require": {
+        "types": "./dist/langchain.d.cts",
+        "default": "./dist/langchain.cjs"
+      }
     },
     "./winston": {
-      "types": "./dist/winston.d.ts",
-      "import": "./dist/winston.mjs",
-      "require": "./dist/winston.cjs"
+      "import": {
+        "types": "./dist/winston.d.ts",
+        "default": "./dist/winston.mjs"
+      },
+      "require": {
+        "types": "./dist/winston.d.cts",
+        "default": "./dist/winston.cjs"
+      }
     },
     "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.mjs"
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "langchain": [
+        "./dist/langchain.d.ts"
+      ],
+      "winston": [
+        "./dist/winston.d.ts"
+      ],
+      "browser": [
+        "./dist/browser.d.ts"
+      ]
     }
   },
   "files": [
@@ -54,6 +84,13 @@
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/pubsub": "^4.0.0",
     "@langchain/core": "^1.0.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-logs-otlp-http": ">=0.220.0 <1.0.0",
+    "@opentelemetry/exporter-trace-otlp-http": ">=0.220.0 <1.0.0",
+    "@opentelemetry/resources": "^2.0.0 || ^3.0.0",
+    "@opentelemetry/sdk-logs": ">=0.220.0 <0.300.0 || ^3.0.0",
+    "@opentelemetry/sdk-trace": "^2.0.0 || ^3.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
     "amqplib": "^0.10.0",
     "applicationinsights": "^3.0.0",
     "kafkajs": "^2.2.0",
@@ -113,6 +150,27 @@
     },
     "nodemailer": {
       "optional": true
+    },
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-logs-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-trace-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace": {
+      "optional": true
     }
   },
   "repository": {
@@ -150,6 +208,11 @@
     "@eslint/js": "^10.0.1",
     "@langchain/core": "^1.2.9",
     "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.223.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "^0.223.0",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^5.0.1",

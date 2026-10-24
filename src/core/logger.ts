@@ -9,7 +9,7 @@ import { RetryTracker } from "./retry.js";
 import { snapshot, stateDiff, UNCAPTURED } from "./state-diff.js";
 import { isEnabled } from "./toggle.js";
 import { currentSpanId, newSpanId, runInSpan } from "#span";
-import type { Transport } from "../transports/transport.js";
+import { hasFlush, type Transport } from "../transports/transport.js";
 
 /** Options for `Logger.span()`. Any extra keys become the span's own `meta`. */
 export interface SpanOptions extends Record<string, unknown> {
@@ -167,9 +167,23 @@ export class Logger {
     await this.dispatchQueue.flush();
   }
 
-  /** Flush every pending record, then close every attached transport. Call once, on shutdown. */
+  /**
+   * Flush every pending record, force every batching transport to send what it
+   * is holding (and wait for it), then close every attached transport. Call once,
+   * on shutdown. Waiting matters: `installShutdownHandlers` may exit the process
+   * right after this resolves, and a transport's own `close()` only starts its
+   * last send.
+   */
   async close(): Promise<void> {
     await this.flush();
+    for (const transport of this.transports) {
+      if (!hasFlush(transport)) continue;
+      try {
+        await transport.flush();
+      } catch (error) {
+        console.error(`${transport.constructor.name}: failed to flush`, error);
+      }
+    }
     for (const transport of this.transports) {
       transport.close();
     }

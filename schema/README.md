@@ -11,6 +11,10 @@ package writes drift apart).
 over awkward values (non-ASCII, control characters, small floats, an `llm` block).
 Both packages verify it, which is what proves they hash the same canonical JSON.
 
+`golden_otel_ids.json` holds the OpenTelemetry span and trace ids derived from LogQuill ids
+(UUIDs, awkward hex, non-ASCII). Authored in `logquill-python`; both packages test against it,
+so a trace that crosses both lines up.
+
 Field names in `meta` are snake_case (`run_id`, `span_id`, `duration_ms`) on
 the wire, in both languages. This package's JS API options stay camelCase
 (`llmCall({ tokensIn })`, `span(name, fn, { spanId })`).

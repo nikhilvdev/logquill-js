@@ -72,7 +72,7 @@ export interface OtelSpanProcessorOptions {
  * call additionally carries `meta.duration_ms`. Non-empty span attributes are
  * copied onto `meta[attributesKey]` verbatim, unrenamed — mapping onto the
  * OTel `gen_ai.*` semantic conventions is deliberately out of scope here
- * (see the v2.0 `OTLPTransport`/`gen_ai.*` plan).
+ * (see `OTLPTransport`, which exports the other direction, with `gen_ai.*` names).
  *
  * Never imports `@opentelemetry/api` or `@opentelemetry/sdk-trace-base` —
  * duck-typed against the shape a `Span`/`ReadableSpan` actually has, so

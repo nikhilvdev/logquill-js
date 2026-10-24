@@ -4,8 +4,21 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
     commit-message:
       prefix: "chore"
+    groups:
+      # A test runner and its coverage plugin must move together: separate PRs each fail against the other.
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+      # Minor and patch releases of the OpenTelemetry packages together; a major gets its own PR, because
+      # the 2.x and 3.0 lines are not interchangeable (see the compatibility matrix in package.yml).
+      opentelemetry:
+        patterns: ["@opentelemetry/*"]
+        update-types: ["minor", "patch"]
+      lint-and-types:
+        patterns: ["eslint", "@eslint/*", "typescript", "typescript-eslint", "prettier", "@types/*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -13,3 +26,6 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    groups:
+      actions:
+        patterns: ["*"]

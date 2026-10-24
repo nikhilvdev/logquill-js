@@ -34,6 +34,21 @@ This release changes the record contract shared with `logquill-python`. See
 
 ### Added
 
+- `OTLPTransport` exports LogQuill's agent tracing as real OpenTelemetry spans:
+  `Logger.span()` blocks (as `invoke_agent {agent}` when they name an agent),
+  tool `.action()`s (`execute_tool {tool}`) and `llmCall()` records
+  (`chat {model}` with `gen_ai.usage.input_tokens`/`output_tokens`). Spans use
+  the ids and timing the records carry, so the exported tree is exactly the
+  logged tree. Prompt and completion text is never exported unless
+  `captureContent` is on.
+- `OTelLogsTransport` sends every record as an OTLP log record, joined to its span
+  by id.
+- `semconv`: every `gen_ai.*` name in one module, pinned to a named release of the
+  GenAI conventions, with a `legacy` set for older backends and
+  `OTEL_SEMCONV_STABILITY_OPT_IN` support. Span and trace ids match the ones
+  `logquill-python` derives. The OpenTelemetry packages are optional peers,
+  tested against `@opentelemetry/sdk-trace-base` 2.0 to 2.12 with `sdk-logs` 0.220 to
+  0.223, and against the 3.0 line (`@opentelemetry/sdk-trace` 3.0, `sdk-logs` 3.0).
 - `logger.llmCall({ model, tokensIn, tokensOut, costUsd, latencyMs, finishReason })`
   logs an LLM call as an `.action()` with the first-class `llm` block. A field of
   the wrong type is dropped with a warning rather than thrown.
@@ -80,6 +95,9 @@ This release changes the record contract shared with `logquill-python`. See
 
 ### Changed
 
+- `Logger.close()` now waits for every transport's own `flush()` before closing it.
+  Before, a batching transport's last send was only started, so
+  `installShutdownHandlers` could exit the process while it was still in flight.
 - `ElasticsearchTransport` now writes Elastic Common Schema fields
   (`@timestamp`, `log.level`, `service.name`, `trace.id`, `span.id`,
   `error.*`) alongside each record, so Kibana works with no field mapping.

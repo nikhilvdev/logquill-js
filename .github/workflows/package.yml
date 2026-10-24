@@ -1,0 +1,118 @@
+name: Package
+
+# Checks the thing users actually install: the packed tarball, not the source tree.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+
+      # Only dist/, LICENSE, README.md and package.json; everything `exports` names is present; size within limits.
+      - name: Check tarball contents
+        run: node scripts/ci/check-pack.mjs
+
+      # Wrong `exports`/`types` conditions break TypeScript users in ways no unit test sees.
+      - name: Lint package.json exports (publint)
+        run: npx --yes publint@0.3 --strict
+      - name: Check type resolution for every entry point (are-the-types-wrong)
+        run: npx --yes @arethetypeswrong/cli@0.18 --pack . --exclude-entrypoints ./browser
+      - name: Check the ESM-only browser entry
+        run: npx --yes @arethetypeswrong/cli@0.18 --pack . --entrypoints ./browser --profile esm-only
+
+      - name: Pack
+        run: |
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack --pack-destination "$RUNNER_TEMP/pack" --silent
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tarball
+          path: ${{ runner.temp }}/pack/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  consumer:
+    name: consumer (node ${{ matrix.node }})
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarball
+          path: ${{ runner.temp }}/tarball
+      # Installs the tarball into a clean project and runs it as CJS and ESM, then type-checks it
+      # (strict, nodenext, the browser entry with no Node typings, legacy node10 resolution).
+      - name: Install and exercise the tarball
+        run: scripts/ci/consumer/run.sh "$(ls "$RUNNER_TEMP"/tarball/*.tgz)" "$RUNNER_TEMP/consumer"
+
+  # The optional OpenTelemetry peers, against the oldest and newest releases we declare support for.
+  otel-compat:
+    name: otel-compat (${{ matrix.name }})
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 2.x minimum
+            packages: "@opentelemetry/api@1.9.0 @opentelemetry/sdk-trace-base@2.0.0 @opentelemetry/resources@2.0.0 @opentelemetry/sdk-logs@0.220.0 @opentelemetry/exporter-trace-otlp-http@0.220.0 @opentelemetry/exporter-logs-otlp-http@0.220.0"
+          - name: 2.x middle
+            packages: "@opentelemetry/api@1.9.1 @opentelemetry/sdk-trace-base@2.6.0 @opentelemetry/resources@2.6.0 @opentelemetry/sdk-logs@0.221.0 @opentelemetry/exporter-trace-otlp-http@0.221.0 @opentelemetry/exporter-logs-otlp-http@0.221.0"
+          - name: 2.x latest
+            packages: "@opentelemetry/api@1.9.1 @opentelemetry/sdk-trace-base@2.12.0 @opentelemetry/resources@2.12.0 @opentelemetry/sdk-logs@0.223.0 @opentelemetry/exporter-trace-otlp-http@0.223.0 @opentelemetry/exporter-logs-otlp-http@0.223.0"
+          - name: 3.0 line
+            packages: "@opentelemetry/api@1.10.0 @opentelemetry/sdk-trace@3.0.0 @opentelemetry/resources@3.0.0 @opentelemetry/sdk-logs@3.0.0 @opentelemetry/exporter-trace-otlp-http@0.300.0 @opentelemetry/exporter-logs-otlp-http@0.300.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarball
+          path: ${{ runner.temp }}/tarball
+      - name: Install this combination (peer ranges enforced) and run the smoke test
+        env:
+          PACKAGES: ${{ matrix.packages }}
+        run: |
+          mkdir "$RUNNER_TEMP/otel" && cd "$RUNNER_TEMP/otel"
+          npm init -y >/dev/null
+          # No --legacy-peer-deps: if our declared peer ranges reject a combination we claim to support, this fails.
+          npm install --no-audit --no-fund "$(ls "$RUNNER_TEMP"/tarball/*.tgz)" $PACKAGES
+          cp "$GITHUB_WORKSPACE/scripts/ci/otel-compat-smoke.cjs" .
+          node otel-compat-smoke.cjs

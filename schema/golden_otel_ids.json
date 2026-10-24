@@ -1,0 +1,118 @@
+{
+  "description": "OpenTelemetry ids derived from LogQuill ids. Authored in logquill-python (tests/test_otel_golden_ids.py); logquill-js carries a copy and tests against it, so a trace that crosses both packages lines up.",
+  "span_id_for": [
+    {
+      "input": "550e8400-e29b-41d4-a716-446655440000",
+      "span_id": "a3a9e1ed9732cab2"
+    },
+    {
+      "input": "00f067aa0ba902b7",
+      "span_id": "00f067aa0ba902b7"
+    },
+    {
+      "input": "00F067AA0BA902B7",
+      "span_id": "4d0e8b180e29c849"
+    },
+    {
+      "input": "0000000000000000",
+      "span_id": "fcdb4b423f4e5283"
+    },
+    {
+      "input": "a",
+      "span_id": "ca978112ca1bbdca"
+    },
+    {
+      "input": "héllo ☃ 𝄞",
+      "span_id": "e97286d7e93b4843"
+    },
+    {
+      "input": "parent-1",
+      "span_id": "f2a0ede82b5b172b"
+    },
+    {
+      "input": "0123456789abcdef0",
+      "span_id": "d4022b7a487c57c1"
+    },
+    {
+      "input": "abcdefabcdefabcd",
+      "span_id": "abcdefabcdefabcd"
+    }
+  ],
+  "trace_id_for": [
+    {
+      "meta": {
+        "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
+      },
+      "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
+    },
+    {
+      "meta": {
+        "trace_id": "4BF92F3577B34DA6A3CE929D0E0E4736"
+      },
+      "trace_id": null
+    },
+    {
+      "meta": {
+        "trace_id": "nope",
+        "run_id": "run-1"
+      },
+      "trace_id": "cef38b0fc7db416194938237d5c0a942"
+    },
+    {
+      "meta": {
+        "trace_id": "00000000000000000000000000000000"
+      },
+      "trace_id": null
+    },
+    {
+      "meta": {
+        "trace_id": "00000000000000000000000000000000",
+        "run_id": "r"
+      },
+      "trace_id": "6d8e00b6044b8734c456fe9912f80a03"
+    },
+    {
+      "meta": {
+        "run_id": "run-1"
+      },
+      "trace_id": "cef38b0fc7db416194938237d5c0a942"
+    },
+    {
+      "meta": {
+        "run_id": "run ☃ 1"
+      },
+      "trace_id": "21a0a2892fc911b6ba9fd2d936a93ab5"
+    },
+    {
+      "meta": {
+        "run_id": ""
+      },
+      "trace_id": null
+    },
+    {
+      "meta": {
+        "trace_id": 42,
+        "run_id": "x"
+      },
+      "trace_id": "b625e9002878fd48ab70514adaf5e9ce"
+    },
+    {
+      "meta": {},
+      "trace_id": null
+    }
+  ],
+  "trace_id_from_parent": [
+    {
+      "input": "parent-1",
+      "trace_id": "f77e8a9a212c97d3e39bb5cfa9547755"
+    },
+    {
+      "input": "00f067aa0ba902b7",
+      "trace_id": "9d9fd86b51423d2046f2e1b05abd42dd"
+    },
+    {
+      "input": "héllo",
+      "trace_id": "c832e3e6cded09ad5024995b3e08f62c"
+    }
+  ]
+}

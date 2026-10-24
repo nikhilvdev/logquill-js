@@ -1,4 +1,14 @@
-import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import { gzipSync } from "node:zlib";
 import type { Formatter } from "../core/formatter.js";
@@ -51,7 +61,11 @@ export class FileTransport extends Transport {
 
   /** Appends one formatted line to the file, rotating first if `maxBytes` has been exceeded. */
   write(formatted: string): void {
-    writeSync(this.fd, (this.encryptKey === undefined ? formatted : fernetEncrypt(this.encryptKey, formatted)) + "\n");
+    writeSync(
+      this.fd,
+      (this.encryptKey === undefined ? formatted : fernetEncrypt(this.encryptKey, formatted)) +
+        "\n",
+    );
     if (this.maxBytes > 0 && fstatSync(this.fd).size >= this.maxBytes) {
       this.rotate();
     }
@@ -64,17 +78,15 @@ export class FileTransport extends Transport {
       for (let index = this.backupCount - 1; index > 0; index--) {
         const src = `${this.path}.${String(index)}${this.backupSuffix}`;
         const dst = `${this.path}.${String(index + 1)}${this.backupSuffix}`;
-        if (existsSync(src)) {
-          if (existsSync(dst)) {
-            unlinkSync(dst);
-          }
+        // rename replaces an existing destination, and a missing source is simply skipped:
+        // no exists-then-act step for another process to race.
+        try {
           renameSync(src, dst);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
       }
       const backup = `${this.path}.1${this.backupSuffix}`;
-      if (existsSync(backup)) {
-        unlinkSync(backup);
-      }
       if (this.backupSuffix === "") {
         renameSync(this.path, backup);
       } else {

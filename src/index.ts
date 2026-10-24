@@ -193,6 +193,11 @@ export type {
 } from "./transports/cloud/datadog-transport.js";
 
 export { ElasticsearchTransport } from "./transports/cloud/elasticsearch-transport.js";
+export { OTLPTransport } from "./transports/otel/otlp-transport.js";
+export type { OTLPTransportOptions } from "./transports/otel/otlp-transport.js";
+export { OTelLogsTransport } from "./transports/otel/logs-transport.js";
+export type { OTelLogsTransportOptions } from "./transports/otel/logs-transport.js";
+export * as semconv from "./otel/semconv.js";
 export { SyslogTransport } from "./transports/cloud/syslog-transport.js";
 export type { SyslogSender, SyslogTransportOptions } from "./transports/cloud/syslog-transport.js";
 export type {
