@@ -29,7 +29,7 @@ const adversarial = fc.object({
   withSet: true,
   withSparseArray: true,
   withTypedArray: true,
-  withUnicodeString: true,
+  stringUnit: "binary",
 });
 
 function circular(meta: Record<string, unknown>): Record<string, unknown> {
