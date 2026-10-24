@@ -34,7 +34,7 @@ const adversarialMeta = fc.object({
   withSet: true,
   withSparseArray: true,
   withTypedArray: true,
-  withUnicodeString: true,
+  stringUnit: "binary",
 });
 
 function withCircularRef(meta: Record<string, unknown>): Record<string, unknown> {

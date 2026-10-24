@@ -38,7 +38,6 @@ export abstract class BatchingTransport<T = LogRecord> extends Transport {
 
   /** Converts a written record into the buffered item type. Defaults to the record itself. */
   protected toItem(formatted: string, record: LogRecord): T {
-    void formatted;
     return record as unknown as T;
   }
 

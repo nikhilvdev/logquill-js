@@ -60,7 +60,6 @@ export abstract class BaseSQLTransport extends BatchingTransport<SQLLogRow> {
   }
 
   protected override toItem(_formatted: string, record: LogRecord): SQLLogRow {
-    void _formatted;
     return {
       timestamp: record.timestamp,
       level: record.level,

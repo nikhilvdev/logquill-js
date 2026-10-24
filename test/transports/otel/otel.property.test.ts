@@ -22,7 +22,7 @@ const adversarial = fc.object({
   withSet: true,
   withSparseArray: true,
   withTypedArray: true,
-  withUnicodeString: true,
+  stringUnit: "binary",
 });
 
 // Keys the transports read, with values of every type, so a wrong type reaches each code path.

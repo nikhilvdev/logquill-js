@@ -31,6 +31,11 @@ export function levelName(level: Level): string {
   return Level[level];
 }
 
+/** Whether `value` is the numeric weight of a `Level` member. */
+function isLevel(value: number): value is Level {
+  return Level[value] !== undefined;
+}
+
 /** Normalize a level given as a `Level`, level name, or numeric weight. Throws if unknown. */
 export function parseLevel(level: LevelInput): Level {
   if (typeof level === "string") {
@@ -40,7 +45,7 @@ export function parseLevel(level: LevelInput): Level {
     }
     return parsed;
   }
-  if (Level[level] === undefined) {
+  if (!isLevel(level)) {
     throw new Error(`Unknown log level: ${String(level)}`);
   }
   return level;
