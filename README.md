@@ -47,6 +47,11 @@ the full history.
   - [Message queue transports](#message-queue-transports)
   - [Cloud-native transports](#cloud-native-transports)
 - [Config from a file or the environment](#config-from-a-file-or-the-environment)
+- [Content capture, LLM calls & runtime controls](#content-capture-llm-calls--runtime-controls)
+  - [Content capture](#content-capture)
+  - [LLM calls and tool retries](#llm-calls-and-tool-retries)
+  - [Per-call options and silencing a library](#per-call-options-and-silencing-a-library)
+  - [Changing the level without a restart](#changing-the-level-without-a-restart)
 - [Plugins](#plugins)
   - [Tail-based sampling](#tail-based-sampling)
   - [PII redaction](#pii-redaction)
@@ -552,6 +557,107 @@ single argument (a `./relative` module is resolved against the config file) — 
 imports code, so only load config you trust. Python's
 `async_dispatch` and `flush_at_exit` keys are ignored: dispatch here is always
 async, and shutdown flushing is opt-in via `installShutdownHandlers(logger)`.
+
+## Content capture, LLM calls & runtime controls
+
+### Content capture
+
+Prompts, completions, tool arguments and results, and captured span state are
+**content**: sometimes exactly what you want while debugging, sometimes exactly
+what must never reach a log. `contentPolicy` decides, once per logger, before any
+plugin or transport sees the record. It is **`"off"` by default**: a content
+field is replaced with a placeholder, never silently dropped.
+
+```ts
+import { CollectingTransport, Logger } from "logquill";
+
+const sink = new CollectingTransport();
+const logger = new Logger("agent", { transports: [sink], contentPolicy: "hash" });
+logger.action("call_model", {
+  input_messages: [{ role: "user", content: "my password is hunter2" }],
+});
+await logger.flush();
+console.log(sink.records[0]?.meta.input_messages); // sha256:... — same prompt, same hash; the text is gone
+```
+
+`"hash"` gives a stable `sha256:` digest (the same one `logquill-python` produces,
+so two services can confirm they saw the same prompt), `"truncate"` keeps the
+first 200 characters, `"full"` passes the value through. The governed keys are
+`input_messages`, `output_messages`, `system_instructions`, `tool_arguments`,
+`tool_result` and `state_diff` (`CONTENT_FIELDS`). This is a technical control that
+supports privacy work, not a compliance guarantee.
+
+### LLM calls and tool retries
+
+```ts
+import { Logger } from "logquill";
+
+const logger = new Logger("agent");
+logger.llmCall(
+  {
+    model: "gpt-4o",
+    tokensIn: 812,
+    tokensOut: 96,
+    costUsd: 0.0031,
+    latencyMs: 1240,
+    finishReason: "stop",
+  },
+  { provider: "openai" },
+);
+// record.llm = { model, tokens_in, tokens_out, cost_usd, latency_ms, finish_reason }
+```
+
+The `llm` block is first-class on the record, so cost and latency dashboards can
+rely on its names. A field of the wrong type is dropped with a warning rather than
+thrown. A tool `.action()` that reopens a call which has not succeeded yet gets
+`meta.retry_count` automatically (a successful `.observation()` ends the chain);
+give calls a `tool_call_id` to tell concurrent calls to one tool apart.
+
+`span()` can also snapshot state before and after the block:
+
+```ts
+import { Logger } from "logquill";
+
+const logger = new Logger("agent", { contentPolicy: "full" }); // state_diff is a content field
+const state = { step: 0 };
+await logger.span(
+  "plan",
+  () => {
+    state.step = 1;
+  },
+  { captureState: () => state },
+);
+// meta.state_diff = { before: { step: 0 }, after: { step: 1 } } (a content field: see contentPolicy)
+```
+
+### Per-call options and silencing a library
+
+```ts
+logger.opt({ lazy: true }).debug("state", { dump: () => expensiveDump() }); // runs only if DEBUG is on
+
+// depth: 1 inside a wrapper reports the wrapper's caller, not the wrapper:
+function audit(message: string) {
+  logger.opt({ depth: 1 }).info(message); // meta.caller = { function, file, line, column }
+}
+audit("exported");
+
+import { disable, enable } from "logquill";
+disable("mylib"); // a library calls this at import to be silent by default
+enable("mylib.http"); // the app opts one part back in; the most specific rule wins
+```
+
+### Changing the level without a restart
+
+```ts
+import { LevelFileWatcher, installSignalLevelHandler } from "logquill";
+
+installSignalLevelHandler(logger); // kill -USR2 <pid> re-reads LOGQUILL_LEVEL
+new LevelFileWatcher(logger, "/tmp/app.level").start(); // echo DEBUG > /tmp/app.level
+```
+
+`SIGUSR2` is used because Node reserves `SIGUSR1` for the inspector. Windows has no
+`SIGUSR2`, so use `LevelFileWatcher` or `LevelEnvWatcher` there. A bad value is
+ignored with a warning, and the watchers' timers never keep the process alive.
 
 ## Plugins
 

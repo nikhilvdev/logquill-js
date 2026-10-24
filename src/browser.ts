@@ -24,6 +24,14 @@ export {
   utcTimestamp,
 } from "./core/records.js";
 export type { LLMBlock } from "./core/records.js";
+export { disable, enable, isEnabled } from "./core/toggle.js";
+export { OptLogger } from "./core/opt.js";
+export type { CallerInfo, DispatchOptions, OptTarget } from "./core/opt.js";
+export { RetryTracker } from "./core/retry.js";
+export { CONTENT_FIELDS, FIELD_CLASSES, TRUNCATE_CHARS } from "./core/privacy.js";
+export type { ContentCapturePolicy, FieldClass } from "./core/privacy.js";
+export { buildLlmBlock } from "./core/records.js";
+export type { LlmCallFields, LlmCallOptions } from "./core/records.js";
 export type { LogRecord } from "./core/records.js";
 
 export { JSONFormatter } from "./core/formatter.js";

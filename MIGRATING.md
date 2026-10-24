@@ -110,3 +110,28 @@ Known limits, all from JavaScript reading a number Python wrote:
   them back as integers and prints all the digits.
 
 Non-integral floats, including very small ones like `2e-05`, match.
+
+## 5. Content fields are off by default
+
+`Logger` now takes a `contentPolicy`, and the default is `"off"`. A record's
+`meta.input_messages`, `output_messages`, `system_instructions`, `tool_arguments`,
+`tool_result` and `state_diff` are replaced with a placeholder before any plugin or
+transport sees them, so a prompt or a tool result can't reach a log by accident.
+
+If you log those keys today and want them kept, say so explicitly:
+
+```ts
+new Logger("agent", { contentPolicy: "full" }); // pass through, as in 1.x
+new Logger("agent", { contentPolicy: "hash" }); // a stable sha256 digest instead of the text
+new Logger("agent", { contentPolicy: "truncate" }); // the first 200 characters
+```
+
+`child()` loggers inherit the parent's policy.
+
+## 6. New in 2.0
+
+`llmCall()`, `opt({ lazy, depth })`, `disable()`/`enable()`, automatic
+`retry_count`, `span(..., { captureState })` and runtime level control
+(`installSignalLevelHandler`, `LevelFileWatcher`, `LevelEnvWatcher`) are additive
+and need no migration. See the README's "Content capture, LLM calls & runtime
+controls" section.

@@ -55,7 +55,7 @@ export function createRecord(params: {
   logger: string;
   message: string;
   meta: Record<string, unknown>;
-  llm?: LLMBlock;
+  llm?: LLMBlock | undefined;
 }): LogRecord {
   const record: LogRecord = {
     schema_version: SCHEMA_VERSION,
@@ -166,4 +166,84 @@ export function parseRecord(raw: unknown): LogRecord {
   }
   if (record.llm !== undefined) record.llm = { ...(record.llm as object) };
   return record as unknown as LogRecord;
+}
+
+/** The LLM-call fields as `llmCall()` takes them, in the camelCase this package's code-level options use. */
+export interface LlmCallFields {
+  /** The model that was called, e.g. `"gpt-4o"`. */
+  model?: string;
+  /** Prompt tokens; a non-negative integer. */
+  tokensIn?: number;
+  /** Completion tokens; a non-negative integer. */
+  tokensOut?: number;
+  /** Cost of the call in US dollars. */
+  costUsd?: number;
+  /** Wall-clock latency of the call in milliseconds. */
+  latencyMs?: number;
+  /** Why generation stopped, e.g. `"stop"` or `"length"`. */
+  finishReason?: string;
+}
+
+/** {@link LlmCallFields} plus the record's message. */
+export interface LlmCallOptions extends LlmCallFields {
+  /** The record's message. Default `"llm_call"`. */
+  message?: string;
+}
+
+const LLM_FIELDS: Readonly<
+  Record<
+    keyof LlmCallFields,
+    { wire: keyof LLMBlock; expected: string; valid: (v: unknown) => boolean }
+  >
+> = {
+  model: { wire: "model", expected: "a string", valid: (v) => typeof v === "string" },
+  tokensIn: {
+    wire: "tokens_in",
+    expected: "a non-negative integer",
+    valid: (v) => typeof v === "number" && Number.isInteger(v) && v >= 0,
+  },
+  tokensOut: {
+    wire: "tokens_out",
+    expected: "a non-negative integer",
+    valid: (v) => typeof v === "number" && Number.isInteger(v) && v >= 0,
+  },
+  costUsd: {
+    wire: "cost_usd",
+    expected: "a non-negative number",
+    valid: (v) => typeof v === "number" && Number.isFinite(v) && v >= 0,
+  },
+  latencyMs: {
+    wire: "latency_ms",
+    expected: "a non-negative number",
+    valid: (v) => typeof v === "number" && Number.isFinite(v) && v >= 0,
+  },
+  finishReason: {
+    wire: "finish_reason",
+    expected: "a string",
+    valid: (v) => typeof v === "string",
+  },
+};
+
+/**
+ * Assembles an {@link LLMBlock} from the fields, leaving out anything
+ * `undefined`/`null` and anything that doesn't fit the contract (a negative
+ * count, a string where a number belongs) — with a warning naming the field,
+ * since a log call must not throw over a bad value, and a record that breaks the
+ * schema is worse than one missing a field. Returns `undefined` if nothing is
+ * left, so a record with no usable LLM data has no `llm` key at all.
+ */
+export function buildLlmBlock(fields: LlmCallFields): LLMBlock | undefined {
+  const block: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue;
+    const spec = LLM_FIELDS[name as keyof LlmCallFields] as
+      (typeof LLM_FIELDS)[keyof LlmCallFields] | undefined;
+    if (spec?.valid(value)) {
+      block[spec.wire] = value;
+    } else {
+      const expected = spec?.expected ?? `one of ${Object.keys(LLM_FIELDS).join(", ")}`;
+      console.warn(`llmCall: ignoring ${name}=${JSON.stringify(value)} — expected ${expected}`);
+    }
+  }
+  return Object.keys(block).length > 0 ? block : undefined;
 }

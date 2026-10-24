@@ -9,11 +9,21 @@ export {
   utcTimestamp,
 } from "./core/records.js";
 export type { LLMBlock } from "./core/records.js";
+export { disable, enable, isEnabled } from "./core/toggle.js";
+export { OptLogger } from "./core/opt.js";
+export type { CallerInfo, DispatchOptions, OptTarget } from "./core/opt.js";
+export { RetryTracker } from "./core/retry.js";
+export { CONTENT_FIELDS, FIELD_CLASSES, TRUNCATE_CHARS } from "./core/privacy.js";
+export type { ContentCapturePolicy, FieldClass } from "./core/privacy.js";
+export { buildLlmBlock } from "./core/records.js";
+export type { LlmCallFields, LlmCallOptions } from "./core/records.js";
 export type { LogRecord } from "./core/records.js";
 
 export { JSONFormatter } from "./core/formatter.js";
 export { LogfmtFormatter, parseLogfmt } from "./core/logfmt-formatter.js";
 export { TextFormatter, formatText } from "./core/text-formatter.js";
+export { LevelEnvWatcher, LevelFileWatcher, installSignalLevelHandler } from "./runtime-level.js";
+export type { LevelWatcherOptions, SignalLevelHandlerOptions } from "./runtime-level.js";
 export { loadConfig, loggerFromEnv, loggerFromFile } from "./config.js";
 export type { ConfigEntry, LoggerConfig } from "./config.js";
 export { TEXT_LOG_CASTS, TEXT_LOG_PATTERN, parse } from "./parsing.js";
@@ -64,7 +74,10 @@ export { SamplingPlugin } from "./plugins/sampling-plugin.js";
 export type { SamplingPluginOptions } from "./plugins/sampling-plugin.js";
 
 export { GENESIS_HASH, TamperEvidentPlugin } from "./plugins/tamper-evident-plugin.js";
-export type { HashableRecord, TamperEvidentPluginOptions } from "./plugins/tamper-evident-plugin.js";
+export type {
+  HashableRecord,
+  TamperEvidentPluginOptions,
+} from "./plugins/tamper-evident-plugin.js";
 
 export { AlertingPlugin } from "./plugins/alerting-plugin.js";
 export type { AlertingPluginOptions } from "./plugins/alerting-plugin.js";
