@@ -20,6 +20,8 @@ export { createRecord, utcTimestamp } from "./core/records.js";
 export type { LogRecord } from "./core/records.js";
 
 export { JSONFormatter } from "./core/formatter.js";
+export { LogfmtFormatter, parseLogfmt } from "./core/logfmt-formatter.js";
+export { TextFormatter, formatText } from "./core/text-formatter.js";
 export type { Formatter } from "./core/formatter.js";
 
 export type { Plugin, MiddlewareFunc } from "./core/plugin.js";

@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- `TextFormatter` and `LogfmtFormatter`, matching `logquill-python`'s output
+  byte for byte, plus `parseLogfmt()` and `parse()` (stream a log file or any
+  line iterable through a regex with named groups, with optional per-group
+  casts) for reading logs back.
 - `FileTransport` `encryptKey` option: encrypts each line as a Fernet token
   before writing, in the same format `logquill-python`'s `encrypt_key`
   uses, so either package can decrypt the other's files. `generateFernetKey()`

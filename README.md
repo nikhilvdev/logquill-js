@@ -23,7 +23,7 @@ the full history.
 
 - **Structured by default** — every call carries a `meta` object, not just a message string
 - **Cross-language record shape** — identical JSON shape and level names/weights as [`logquill` on PyPI](https://pypi.org/project/logquill/)
-- **Pluggable formatters** — `JSONFormatter` out of the box; implement `format(record) -> string` for your own
+- **Pluggable formatters** — `JSONFormatter`, `TextFormatter` and `LogfmtFormatter` out of the box, plus `parse()`/`parseLogfmt()` to read logs back; implement `format(record) -> string` for your own
 - **A transport for wherever your logs need to go** — console, file, and HTTP out of the box, plus SQL (SQLite/Postgres/MySQL), NoSQL (MongoDB/DynamoDB/Redis), message queues (Kafka/RabbitMQ/SQS/Pub-Sub), and cloud-native platforms (CloudWatch/Cloud Logging/App Insights/Datadog/Elasticsearch/New Relic) — see [Transports](#transports). Every backend driver is an **optional peer dependency**: install only the one you use, or inject a pre-built client. Write your own by subclassing `Transport`; `CollectingTransport` ships as an in-memory sink, handy for tests
 - **Plugin pipeline** — `ContextPlugin`, `RedactPlugin`, `PIIRedactPlugin`, tail-based `SamplingPlugin`, `TamperEvidentPlugin`, and `AlertingPlugin` (`SlackAlertPlugin`/`PagerDutyAlertPlugin`/`EmailAlertPlugin`) out of the box; `beforeLog`/`afterLog`/`onError` hooks, or just pass a plain function to `.use()`; a throwing plugin can't crash logging — see [Plugins](#plugins)
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
@@ -97,6 +97,26 @@ import { JSONFormatter } from "logquill";
 
 console.log(new JSONFormatter().format(record));
 // '{"timestamp":"2026-08-29T07:12:55.968Z","level":"INFO","logger":"app","message":"user signed up","meta":{"user_id":42,"plan":"pro"}}'
+```
+
+For eyes instead of machines, `TextFormatter` renders one readable entry and
+`LogfmtFormatter` emits `key=value` pairs for Loki/Splunk/`grep`. Both never
+throw on odd `meta` values, and match `logquill-python`'s output byte for byte:
+
+```ts
+import { ConsoleTransport, LogfmtFormatter, TextFormatter, parse, parseLogfmt, TEXT_LOG_PATTERN, TEXT_LOG_CASTS } from "logquill";
+
+new ConsoleTransport({ formatter: new TextFormatter() });
+// 2026-01-01T00:00:00.000Z INFO  app.api: user signed up {"userId":42}
+new ConsoleTransport({ formatter: new LogfmtFormatter() });
+// timestamp=2026-01-01T00:00:00.000Z level=INFO logger=app.api message="user signed up" userId=42
+
+parseLogfmt('level=INFO message="user signed up"'); // { level: "INFO", message: "user signed up" }
+
+// Stream structured fields out of any log file, one object per matching line:
+for await (const entry of parse("app.log", TEXT_LOG_PATTERN, { cast: TEXT_LOG_CASTS })) {
+  console.log(entry.level, entry.meta);
+}
 ```
 
 `.child()` creates a logger scoped under this one, inheriting its level,
