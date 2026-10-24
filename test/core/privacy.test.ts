@@ -171,3 +171,23 @@ describe("acceptance: a seeded secret in a prompt", () => {
     expect(everything).toContain("content capture is off");
   });
 });
+
+describe("canonicalStringify", () => {
+  it("throws a TypeError on a circular reference immediately, without overflowing the stack", async () => {
+    const { canonicalStringify } = await import("../../src/core/canonical-json.js");
+    const loop: Record<string, unknown> = { a: [1] };
+    (loop.a as unknown[]).push(loop);
+    const started = performance.now();
+    expect(() => canonicalStringify(loop)).toThrow(TypeError);
+    expect(() => canonicalStringify(loop)).toThrow(/circular reference/);
+    expect(performance.now() - started).toBeLessThan(50);
+  });
+
+  it("allows the same object appearing twice when it is not an ancestor of itself", async () => {
+    const { canonicalStringify } = await import("../../src/core/canonical-json.js");
+    const shared = { n: 1 };
+    expect(canonicalStringify({ a: shared, b: [shared, shared] })).toBe(
+      '{"a": {"n": 1}, "b": [{"n": 1}, {"n": 1}]}',
+    );
+  });
+});

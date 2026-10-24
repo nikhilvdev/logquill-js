@@ -32,26 +32,38 @@ function pythonNumber(value: number): string {
  * it (a tamper-chain hash, a content-policy digest) is the same in
  * `logquill-python` and here. Keys sort by UTF-16 code unit, which matches
  * Python's code-point order except around astral characters.
+ *
+ * Throws a `TypeError` straight away on a circular reference, as Python's
+ * `json.dumps` does, rather than recursing until the stack overflows.
  */
 export function canonicalStringify(value: unknown): string {
+  return encode(value, new Set());
+}
+
+function encode(value: unknown, ancestors: Set<object>): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "string") return pythonString(value);
   if (typeof value === "number") return pythonNumber(value);
   if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "bigint") return value.toString();
-  if (typeof value === "object" && "toJSON" in value && typeof value.toJSON === "function") {
-    return canonicalStringify((value as { toJSON(): unknown }).toJSON());
-  }
-  if (Array.isArray(value))
-    return `[${value.map((entry) => canonicalStringify(entry)).join(", ")}]`;
-  if (typeof value === "object") {
+  if (typeof value !== "object") return "null"; // functions and symbols: dropped from objects below, null elsewhere
+
+  if (ancestors.has(value)) throw new TypeError("canonicalStringify: circular reference detected");
+  ancestors.add(value);
+  try {
+    if ("toJSON" in value && typeof value.toJSON === "function") {
+      return encode((value as { toJSON(): unknown }).toJSON(), ancestors);
+    }
+    if (Array.isArray(value))
+      return `[${value.map((entry) => encode(entry, ancestors)).join(", ")}]`;
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(
         ([, entry]) =>
           entry !== undefined && typeof entry !== "function" && typeof entry !== "symbol",
       )
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([key, entry]) => `${pythonString(key)}: ${canonicalStringify(entry)}`).join(", ")}}`;
+    return `{${entries.map(([key, entry]) => `${pythonString(key)}: ${encode(entry, ancestors)}`).join(", ")}}`;
+  } finally {
+    ancestors.delete(value);
   }
-  return "null"; // functions and symbols: dropped from objects above, null elsewhere
 }
