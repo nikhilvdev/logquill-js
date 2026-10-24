@@ -42,7 +42,9 @@ jobs:
         run: npx --yes @arethetypeswrong/cli@0.18 --pack . --entrypoints ./browser --profile esm-only
 
       - name: Pack
-        run: npm pack --pack-destination "$RUNNER_TEMP/pack" --silent
+        run: |
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack --pack-destination "$RUNNER_TEMP/pack" --silent
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tarball

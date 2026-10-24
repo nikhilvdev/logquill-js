@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LogRecord } from "../../src/index.js";
@@ -309,19 +309,14 @@ describe("isolation", () => {
   it("keeps every gen_ai.* attribute name in semconv.ts, so moving to a newer convention is a one-file change", () => {
     const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "src");
     const offenders: string[] = [];
-    const walk = (dir: string): void => {
-      for (const entry of readdirSync(dir)) {
-        const path = join(dir, entry);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (path.endsWith(".ts") && !path.endsWith(join("otel", "semconv.ts"))) {
-          const code = readFileSync(path, "utf8")
-            .replace(/\/\*[\s\S]*?\*\//g, "")
-            .replace(/^\s*\/\/.*$/gm, "");
-          if (/gen_ai\./.test(code)) offenders.push(relative(srcDir, path));
-        }
-      }
-    };
-    walk(srcDir);
+    // One recursive listing, then read: no stat-then-open step to race.
+    for (const entry of readdirSync(srcDir, { recursive: true, encoding: "utf8" })) {
+      if (!entry.endsWith(".ts") || entry.endsWith(join("otel", "semconv.ts"))) continue;
+      const code = readFileSync(join(srcDir, entry), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      if (/gen_ai\./.test(code)) offenders.push(entry);
+    }
     expect(offenders).toEqual([]);
   });
 });
