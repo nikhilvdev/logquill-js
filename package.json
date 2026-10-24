@@ -10,23 +10,53 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langchain": {
-      "types": "./dist/langchain.d.ts",
-      "import": "./dist/langchain.mjs",
-      "require": "./dist/langchain.cjs"
+      "import": {
+        "types": "./dist/langchain.d.ts",
+        "default": "./dist/langchain.mjs"
+      },
+      "require": {
+        "types": "./dist/langchain.d.cts",
+        "default": "./dist/langchain.cjs"
+      }
     },
     "./winston": {
-      "types": "./dist/winston.d.ts",
-      "import": "./dist/winston.mjs",
-      "require": "./dist/winston.cjs"
+      "import": {
+        "types": "./dist/winston.d.ts",
+        "default": "./dist/winston.mjs"
+      },
+      "require": {
+        "types": "./dist/winston.d.cts",
+        "default": "./dist/winston.cjs"
+      }
     },
     "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.mjs"
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.mjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "langchain": [
+        "./dist/langchain.d.ts"
+      ],
+      "winston": [
+        "./dist/winston.d.ts"
+      ],
+      "browser": [
+        "./dist/browser.d.ts"
+      ]
     }
   },
   "files": [

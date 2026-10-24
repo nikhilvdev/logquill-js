@@ -1,0 +1,38 @@
+name: Changelog
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: CHANGELOG updated
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Require a CHANGELOG entry for changes to the package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          if [[ "$AUTHOR" == "dependabot[bot]" ]]; then echo "Dependabot PR: no changelog entry needed."; exit 0; fi
+          if [[ ",$LABELS," == *",skip-changelog,"* ]]; then echo "Labelled skip-changelog."; exit 0; fi
+
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if ! grep -qE '^(src/|package\.json$)' <<<"$files"; then
+            echo "No change to src/ or package.json: no changelog entry needed."; exit 0
+          fi
+          if grep -qx 'CHANGELOG.md' <<<"$files"; then
+            echo "CHANGELOG.md is updated."; exit 0
+          fi
+          echo "::error file=CHANGELOG.md::This PR changes src/ or package.json but not CHANGELOG.md. Add an entry under 'Unreleased', or add the 'skip-changelog' label if users will not notice the change."
+          exit 1

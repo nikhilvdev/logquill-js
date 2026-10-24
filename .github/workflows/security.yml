@@ -1,0 +1,48 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * *" # daily: new advisories land without anyone touching the repo
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+
+      # logquill has no runtime dependencies, so this is a hard guarantee: it fails the moment one is added with a known advisory.
+      - name: Audit runtime dependencies (blocking)
+        run: npm audit --omit=dev --audit-level=low
+
+      # The tools that build the published artifact. Reported, not blocking: a dev-server advisory in a bundler
+      # we never run as a server should not stop an unrelated PR. Read the summary.
+      - name: Audit build and test tooling (report only)
+        run: |
+          {
+            echo "### npm audit (all dependencies, high and above)"
+            echo '```'
+            npm audit --audit-level=high || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Every installed package must carry a valid registry signature (and provenance where published with it).
+      - name: Verify registry signatures
+        run: npm audit signatures

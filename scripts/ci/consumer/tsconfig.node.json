@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2022",
+    "strict": true,
+    "skipLibCheck": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "files": ["main.cts", "main.mts"]
+}

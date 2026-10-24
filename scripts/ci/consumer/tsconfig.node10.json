@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "target": "es2022",
+    "strict": true,
+    "skipLibCheck": false,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "files": ["legacy.ts"]
+}

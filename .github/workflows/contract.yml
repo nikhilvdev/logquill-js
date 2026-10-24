@@ -1,0 +1,43 @@
+name: Contract
+
+# logquill and logquill-python promise the same record shape. The schema and golden fixtures are authored in
+# logquill-python and copied here; this fails when the copies drift from what is on its main branch.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 6 * * *" # daily: a change merged on the Python side should surface here without a JS PR
+
+permissions:
+  contents: read
+
+jobs:
+  schema-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare schema/ with logquill-python's main
+        run: |
+          base=https://raw.githubusercontent.com/nikhilvdev/logquill-python/main/schema
+          status=0
+          for file in record.schema.json golden_records.json golden_chain.json golden_otel_ids.json; do
+            code=$(curl -sS -o "$RUNNER_TEMP/upstream.json" -w '%{http_code}' "$base/$file")
+            if [[ "$code" == "404" ]]; then
+              echo "::warning file=schema/$file::$file is not on logquill-python's main branch yet; nothing to compare."
+              continue
+            elif [[ "$code" != "200" ]]; then
+              echo "::error::Could not fetch $file from logquill-python (HTTP $code)."; status=1; continue
+            fi
+            if ! diff -u "$RUNNER_TEMP/upstream.json" "schema/$file"; then
+              echo "::error file=schema/$file::schema/$file differs from logquill-python's main. These files are authored there: re-copy it, and open the matching change if this one is intentional."
+              status=1
+            else
+              echo "schema/$file matches"
+            fi
+          done
+          exit $status
