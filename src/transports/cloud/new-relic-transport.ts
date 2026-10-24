@@ -100,7 +100,9 @@ export class NewRelicTransport extends BatchingTransport {
     this.licenseKey = options.licenseKey;
     this.region = options.region ?? "US";
     this.url =
-      this.region === "EU" ? "https://log-api.eu.newrelic.com/log/v1" : "https://log-api.newrelic.com/log/v1";
+      this.region === "EU"
+        ? "https://log-api.eu.newrelic.com/log/v1"
+        : "https://log-api.newrelic.com/log/v1";
     this.sender = options.sender ?? fetchNewRelicSender;
     this.clock = options.clock ?? Date.now;
   }

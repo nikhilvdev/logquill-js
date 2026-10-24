@@ -2,9 +2,17 @@ import { BatchingTransport, type BatchingTransportOptions } from "../batching-tr
 import type { LogRecord } from "../../core/records.js";
 
 /** Sends one batch of formatted lines to Datadog's Logs intake API at `url`. Swap in a fake for tests. */
-export type DatadogSender = (url: string, apiKey: string, batch: readonly string[]) => Promise<void> | void;
+export type DatadogSender = (
+  url: string,
+  apiKey: string,
+  batch: readonly string[],
+) => Promise<void> | void;
 
-async function fetchDatadogSender(url: string, apiKey: string, batch: readonly string[]): Promise<void> {
+async function fetchDatadogSender(
+  url: string,
+  apiKey: string,
+  batch: readonly string[],
+): Promise<void> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "DD-API-KEY": apiKey },

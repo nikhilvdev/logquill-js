@@ -1,5 +1,6 @@
 import { BatchingTransport, type BatchingTransportOptions } from "../batching-transport.js";
 import type { LogRecord } from "../../core/records.js";
+import { toEcsDocument } from "./ecs-mapper.js";
 
 /** Sends one pre-built NDJSON `_bulk` body to `url` with the given headers. Swap in a fake for tests. */
 export type ElasticsearchSender = (
@@ -19,7 +20,9 @@ async function fetchElasticsearchSender(
     body,
   });
   if (!response.ok) {
-    throw new Error(`ElasticsearchTransport: request to ${url} failed with status ${String(response.status)}`);
+    throw new Error(
+      `ElasticsearchTransport: request to ${url} failed with status ${String(response.status)}`,
+    );
   }
 }
 
@@ -38,7 +41,10 @@ export interface ElasticsearchTransportOptions extends BatchingTransportOptions 
 /**
  * Batches records and POSTs them to Elasticsearch's `_bulk` API
  * (`<node>/_bulk`) via `fetch`, as newline-delimited action+source pairs —
- * no client dependency needed, just NDJSON body construction. Pass `sender`
+ * no client dependency needed, just NDJSON body construction. Each document
+ * is the record plus Elastic Common Schema fields (`@timestamp`, `log.level`,
+ * `service.name`, `trace.id`, ...) so Kibana works on it with no field
+ * mapping; it is always JSON, so a custom `formatter` is not applied. Pass `sender`
  * to swap in a fake for tests, or a different delivery mechanism.
  */
 export class ElasticsearchTransport extends BatchingTransport {
@@ -61,7 +67,7 @@ export class ElasticsearchTransport extends BatchingTransport {
     const lines: string[] = [];
     for (const record of batch) {
       lines.push(JSON.stringify({ index: { _index: this.index } }));
-      lines.push(this.format(record));
+      lines.push(JSON.stringify(toEcsDocument(record)));
     }
     // The bulk API requires a trailing newline after the final action/source pair.
     const body = `${lines.join("\n")}\n`;

@@ -7,6 +7,8 @@ export type { LogRecord } from "./core/records.js";
 export { JSONFormatter } from "./core/formatter.js";
 export { LogfmtFormatter, parseLogfmt } from "./core/logfmt-formatter.js";
 export { TextFormatter, formatText } from "./core/text-formatter.js";
+export { loadConfig, loggerFromEnv, loggerFromFile } from "./config.js";
+export type { ConfigEntry, LoggerConfig } from "./config.js";
 export { TEXT_LOG_CASTS, TEXT_LOG_PATTERN, parse } from "./parsing.js";
 export type { ParseOptions } from "./parsing.js";
 export type { Formatter } from "./core/formatter.js";
@@ -171,6 +173,8 @@ export type {
 } from "./transports/cloud/datadog-transport.js";
 
 export { ElasticsearchTransport } from "./transports/cloud/elasticsearch-transport.js";
+export { SyslogTransport } from "./transports/cloud/syslog-transport.js";
+export type { SyslogSender, SyslogTransportOptions } from "./transports/cloud/syslog-transport.js";
 export type {
   ElasticsearchSender,
   ElasticsearchTransportOptions,

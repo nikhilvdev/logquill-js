@@ -46,6 +46,7 @@ the full history.
   - [NoSQL transports](#nosql-transports)
   - [Message queue transports](#message-queue-transports)
   - [Cloud-native transports](#cloud-native-transports)
+- [Config from a file or the environment](#config-from-a-file-or-the-environment)
 - [Plugins](#plugins)
   - [Tail-based sampling](#tail-based-sampling)
   - [PII redaction](#pii-redaction)
@@ -172,6 +173,7 @@ actually import; nothing is installed on your behalf.
 | `AppInsightsTransport` | Azure Application Insights | `applicationinsights` | needs an Azure account |
 | `DatadogTransport` | Datadog Logs | *(none, uses `fetch`)* | needs a Datadog account |
 | `ElasticsearchTransport` | Elasticsearch `_bulk` API | *(none, uses `fetch`)* | needs a cluster |
+| `SyslogTransport` | RFC 5424 syslog over UDP/TCP | *(none, uses `dgram`/`net`)* | needs a syslog server |
 | `NewRelicTransport` | New Relic Log API | *(none, uses `fetch`)* | needs a New Relic account |
 
 Every transport also accepts an injected client/sender in place of its
@@ -443,6 +445,20 @@ const logger = new Logger("app", {
   ],
 });
 logger.info("service started");
+// Each document also carries Elastic Common Schema fields (`@timestamp`,
+// `log.level`, `service.name`, `trace.id`, `span.id`, `error.*`), so Kibana's
+// Discover and dashboards work with no field mapping.
+```
+
+```ts
+import { Logger, SyslogTransport } from "logquill";
+
+// One RFC 5424 message per record. UDP by default; `protocol: "tcp"` newline-frames.
+// Delivery is fire-and-forget, so an unreachable server never blocks or throws.
+const logger = new Logger("app", {
+  transports: [new SyslogTransport({ host: "logs.internal", port: 514, protocol: "udp" })],
+});
+logger.warn("disk almost full");
 ```
 
 ```ts
@@ -457,6 +473,43 @@ const logger = new Logger("app", {
 });
 logger.info("service started");
 ```
+
+## Config from a file or the environment
+
+`loggerFromFile` builds a `Logger` from a `.json`, `.yaml` or `.yml` file in the
+same shape `logquill-python` reads, so one config can serve both stacks. YAML
+needs the optional `yaml` package (`npm install yaml`).
+
+```json
+{
+  "level": "INFO",
+  "transports": [
+    { "type": "console", "options": { "formatter": "text" } },
+    { "type": "file", "options": { "path": "app.log", "max_bytes": 1000000 } }
+  ],
+  "plugins": [{ "type": "sampling", "options": { "rate": 0.1 } }],
+  "max_queue_size": 10000,
+  "backpressure": "drop_oldest"
+}
+```
+
+```ts
+import { loggerFromEnv, loggerFromFile } from "logquill";
+
+const logger = await loggerFromFile("logquill.json", "app");
+
+// LOGQUILL_CONFIG_FILE points at such a file; LOGQUILL_LEVEL, if set, always wins.
+const fromEnv = await loggerFromEnv();
+```
+
+Built-in transport types are `console`, `file`, `http` and `syslog`; plugin types
+are `context`, `redact`, `sampling`, `trace_context`, `run`, `pii_redact` and
+`tamper_evident`. Option names may be snake_case or camelCase. A transport's
+`formatter` may be `"json"`, `"text"` or `"logfmt"`. Anything else is referenced
+as `{ "class": "<module>#<ExportName>" }` and constructed with `options` as its
+single argument — that imports code, so only load config you trust. Python's
+`async_dispatch` and `flush_at_exit` keys are ignored: dispatch here is always
+async, and shutdown flushing is opt-in via `installShutdownHandlers(logger)`.
 
 ## Plugins
 

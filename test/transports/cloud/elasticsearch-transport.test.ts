@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Logger } from "../../../src/index.js";
-import { ElasticsearchTransport, type ElasticsearchSender } from "../../../src/transports/cloud/elasticsearch-transport.js";
+import {
+  ElasticsearchTransport,
+  type ElasticsearchSender,
+} from "../../../src/transports/cloud/elasticsearch-transport.js";
 
 function fakeSender(): ElasticsearchSender & {
   calls: [string, Readonly<Record<string, string>>, string][];
@@ -18,6 +21,26 @@ describe("ElasticsearchTransport", () => {
     globalThis.fetch = originalFetch;
   });
 
+  it("writes each document with Elastic Common Schema fields added", async () => {
+    const sender = fakeSender();
+    const logger = new Logger("app.test", {
+      transports: [
+        new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 1 }),
+      ],
+    });
+    logger.error("boom", { traceId: "t1" });
+    await logger.flush();
+    const body = (sender.calls[0] as [string, Readonly<Record<string, string>>, string])[2];
+    const doc = JSON.parse(body.split("\n")[1] ?? "{}") as Record<string, unknown>;
+    expect(doc).toMatchObject({
+      "@timestamp": doc.timestamp,
+      log: { level: "error" },
+      service: { name: "app.test" },
+      trace: { id: "t1" },
+      level: "ERROR",
+    });
+  });
+
   it("builds the bulk URL from node, trimming a trailing slash", () => {
     const sender = fakeSender();
     const transport = new ElasticsearchTransport({ node: "https://localhost:9200/", sender });
@@ -26,7 +49,11 @@ describe("ElasticsearchTransport", () => {
 
   it("batches writes until maxRecords is reached, as NDJSON action+source pairs", async () => {
     const sender = fakeSender();
-    const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 2 });
+    const transport = new ElasticsearchTransport({
+      node: "https://localhost:9200",
+      sender,
+      maxRecords: 2,
+    });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("one");
@@ -67,7 +94,11 @@ describe("ElasticsearchTransport", () => {
 
   it("omits the Authorization header when no apiKey is given", async () => {
     const sender = fakeSender();
-    const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 1 });
+    const transport = new ElasticsearchTransport({
+      node: "https://localhost:9200",
+      sender,
+      maxRecords: 1,
+    });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
@@ -78,7 +109,11 @@ describe("ElasticsearchTransport", () => {
 
   it("close() flushes a partial batch", async () => {
     const sender = fakeSender();
-    const transport = new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 10 });
+    const transport = new ElasticsearchTransport({
+      node: "https://localhost:9200",
+      sender,
+      maxRecords: 10,
+    });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");

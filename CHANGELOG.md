@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- `loggerFromFile()`, `loggerFromEnv()` and `loadConfig()`: build a `Logger`
+  from a JSON or YAML file (YAML needs the optional `yaml` package) in the
+  same shape `logquill-python` reads. `LOGQUILL_CONFIG_FILE` names the file
+  and `LOGQUILL_LEVEL` overrides its level.
+- `SyslogTransport`: RFC 5424 messages over UDP or TCP via `dgram`/`net`, no
+  dependency, fire-and-forget so an unreachable server never blocks logging.
 - `TextFormatter` and `LogfmtFormatter`, matching `logquill-python`'s output
   byte for byte, plus `parseLogfmt()` and `parse()` (stream a log file or any
   line iterable through a regex with named groups, with optional per-group
@@ -18,6 +24,14 @@ All notable changes to this project are documented in this file.
   generate one.
 - `FileTransport` `compression: "gz"` option: gzips each file as it is
   rotated out, so backups become `app.log.1.gz`, `app.log.2.gz`, and so on.
+
+### Changed
+
+- `ElasticsearchTransport` now writes Elastic Common Schema fields
+  (`@timestamp`, `log.level`, `service.name`, `trace.id`, `span.id`,
+  `error.*`) alongside each record, so Kibana works with no field mapping.
+  Documents are always JSON, so a custom `formatter` is no longer applied
+  to this transport.
 
 ## [1.0.1] - 2026-09-06
 

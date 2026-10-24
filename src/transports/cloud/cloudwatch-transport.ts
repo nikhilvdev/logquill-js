@@ -82,7 +82,9 @@ export class CloudWatchTransport extends BatchingTransport {
       // won't try to resolve types for it, and bundlers won't force-include it.
       const moduleName = "@aws-sdk/client-cloudwatch-logs";
       const mod = (await import(moduleName)) as unknown as {
-        CloudWatchLogsClient: new (config: { region?: string | undefined }) => AWSCloudWatchLogsClientLike;
+        CloudWatchLogsClient: new (config: {
+          region?: string | undefined;
+        }) => AWSCloudWatchLogsClientLike;
         PutLogEventsCommand: new (input: unknown) => unknown;
       };
       ClientCtor = mod.CloudWatchLogsClient;
