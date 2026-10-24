@@ -6,9 +6,9 @@ import type { ChainValues } from "@langchain/core/utils/types";
 import type { Logger } from "../core/logger.js";
 
 function spanIds(runId: string, parentRunId: string | undefined): Record<string, unknown> {
-  const ids: Record<string, unknown> = { spanId: runId };
+  const ids: Record<string, unknown> = { span_id: runId };
   if (parentRunId !== undefined) {
-    ids.parentSpanId = parentRunId;
+    ids.parent_span_id = parentRunId;
   }
   return ids;
 }
@@ -66,17 +66,17 @@ function formatError(error: unknown): string {
  * | LangChain.js callback | LogQuill call |
  * |---|---|
  * | `handleChainStart` / `handleChainEnd` | one `span()`-shaped record on end/error |
- * | `handleLLMStart` / `handleLLMEnd` | `.action()` / `.observation()` with `durationMs` |
+ * | `handleLLMStart` / `handleLLMEnd` | `.action()` / `.observation()` with `duration_ms` |
  * | `handleAgentAction` | `.action()` |
  * | `handleAgentEnd` | `.decision()` |
  * | `handleToolStart` / `handleToolEnd` / `handleToolError` | `.action()` / `.observation()` / `.error()` |
  *
  * LangChain's own `runId`/`parentRunId` are written directly onto
- * `meta.spanId`/`meta.parentSpanId` on every event — the shapes already
+ * `meta.span_id`/`meta.parent_span_id` on every event — the shapes already
  * match, so this is field renaming, not translation. Chain start/end is
  * stamped manually (rather than via `Logger.span()`, which wraps a single
- * callback) into the same `{ kind: "span", spanId, parentSpanId,
- * durationMs }` shape `Logger.span()` itself produces, since LangChain
+ * callback) into the same `{ kind: "span", span_id, parent_span_id,
+ * duration_ms }` shape `Logger.span()` itself produces, since LangChain
  * opens and closes a chain run from two separate, independently-scheduled
  * callback invocations — there's no single function to wrap.
  *
@@ -121,7 +121,11 @@ export class LangChainAdapter extends BaseCallbackHandler {
   handleChainEnd(_outputs: ChainValues, runId: string, parentRunId: string | undefined): void {
     const name = this.chainNames.get(runId) ?? "chain";
     this.chainNames.delete(runId);
-    this.log.info(name, { kind: "span", ...spanIds(runId, parentRunId), durationMs: this.takeDurationMs(runId) });
+    this.log.info(name, {
+      kind: "span",
+      ...spanIds(runId, parentRunId),
+      duration_ms: this.takeDurationMs(runId),
+    });
   }
 
   handleChainError(err: unknown, runId: string, parentRunId: string | undefined): void {
@@ -130,7 +134,7 @@ export class LangChainAdapter extends BaseCallbackHandler {
     this.log.error(name, {
       kind: "span",
       ...spanIds(runId, parentRunId),
-      durationMs: this.takeDurationMs(runId),
+      duration_ms: this.takeDurationMs(runId),
       error: formatError(err),
     });
   }
@@ -148,7 +152,10 @@ export class LangChainAdapter extends BaseCallbackHandler {
   }
 
   handleLLMEnd(_output: LLMResult, runId: string, parentRunId: string | undefined): void {
-    this.log.observation("llm_end", { ...spanIds(runId, parentRunId), durationMs: this.takeDurationMs(runId) });
+    this.log.observation("llm_end", {
+      ...spanIds(runId, parentRunId),
+      duration_ms: this.takeDurationMs(runId),
+    });
   }
 
   handleLLMError(err: unknown, runId: string, parentRunId: string | undefined): void {
@@ -159,11 +166,11 @@ export class LangChainAdapter extends BaseCallbackHandler {
   // -- agent-level events --------------------------------------------------
 
   handleAgentAction(action: AgentAction, runId: string): void {
-    this.log.action(action.tool || "agent_action", { parentSpanId: runId });
+    this.log.action(action.tool || "agent_action", { parent_span_id: runId });
   }
 
   handleAgentEnd(_action: AgentFinish, runId: string): void {
-    this.log.decision("agent_finish", { parentSpanId: runId });
+    this.log.decision("agent_finish", { parent_span_id: runId });
   }
 
   // -- tools: action (start) / observation (end) / error -------------------
@@ -179,7 +186,10 @@ export class LangChainAdapter extends BaseCallbackHandler {
   }
 
   handleToolEnd(_output: unknown, runId: string, parentRunId: string | undefined): void {
-    this.log.observation("tool_end", { ...spanIds(runId, parentRunId), durationMs: this.takeDurationMs(runId) });
+    this.log.observation("tool_end", {
+      ...spanIds(runId, parentRunId),
+      duration_ms: this.takeDurationMs(runId),
+    });
   }
 
   handleToolError(err: unknown, runId: string, parentRunId: string | undefined): void {

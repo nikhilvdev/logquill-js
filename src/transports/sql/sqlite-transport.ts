@@ -1,4 +1,8 @@
-import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "./base-sql-transport.js";
+import {
+  BaseSQLTransport,
+  type BaseSQLTransportOptions,
+  type SQLLogRow,
+} from "./base-sql-transport.js";
 
 /** The subset of a `better-sqlite3` prepared statement that `SQLiteTransport` needs. */
 export interface SQLiteStatementLike {
@@ -75,7 +79,7 @@ export class SQLiteTransport extends BaseSQLTransport {
   protected async insertRows(rows: readonly SQLLogRow[]): Promise<void> {
     const client = this.resolvedClient() ?? (await this.importClient());
     const stmt = client.prepare(
-      `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, runId, spanId, parentSpanId, traceId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, run_id, span_id, parent_span_id, trace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertMany = client.transaction((batch: readonly SQLLogRow[]) => {
       for (const row of batch) {
@@ -85,10 +89,10 @@ export class SQLiteTransport extends BaseSQLTransport {
           row.logger,
           row.message,
           row.meta,
-          row.runId,
-          row.spanId,
-          row.parentSpanId,
-          row.traceId,
+          row.run_id,
+          row.span_id,
+          row.parent_span_id,
+          row.trace_id,
         );
       }
     });

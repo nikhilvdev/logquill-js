@@ -20,7 +20,7 @@ describe("RedisTransport (auto-imported `redis` driver)", () => {
     const transport = new RedisTransport({ url: "redis://example:6380", stream: "custom" });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("hello", { runId: "run-1" });
+    logger.info("hello", { run_id: "run-1" });
     await logger.flush();
     transport.close();
     // sendBatch() has to await importClient()'s dynamic import before it can

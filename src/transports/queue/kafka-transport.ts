@@ -6,7 +6,10 @@ export interface KafkaProducerLike {
   /** Optional: some injected producers (or fakes) are already connected. */
   connect?(): Promise<void>;
   /** Publishes one batch of messages to a topic, matching `kafkajs`'s own `Producer.send()`. */
-  send(record: { topic: string; messages: { key: string | null; value: string }[] }): Promise<unknown>;
+  send(record: {
+    topic: string;
+    messages: { key: string | null; value: string }[];
+  }): Promise<unknown>;
 }
 
 export interface KafkaTransportOptions extends BaseQueueTransportOptions {
@@ -23,7 +26,7 @@ function metaKey(meta: Record<string, unknown>, key: string): string | undefined
 
 /**
  * Publishes batches to a Kafka topic via `kafkajs`. Each message's `key` is
- * set to `meta.runId` (falling back to `meta.traceId`, then `null`), so
+ * set to `meta.run_id` (falling back to `meta.trace_id`, then `null`), so
  * kafkajs's default partitioner keeps every message from the same agent
  * run/trace on one partition — preserving per-trace ordering, per the
  * message-queue contract in the project spec.
@@ -80,7 +83,7 @@ export class KafkaTransport extends BaseQueueTransport {
     await client.send({
       topic: this.topic,
       messages: records.map((record) => ({
-        key: metaKey(record.meta, "runId") ?? metaKey(record.meta, "traceId") ?? null,
+        key: metaKey(record.meta, "run_id") ?? metaKey(record.meta, "trace_id") ?? null,
         value: JSON.stringify(record),
       })),
     });

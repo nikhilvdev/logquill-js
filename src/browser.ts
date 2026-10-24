@@ -16,7 +16,14 @@
 export { Level, levelName, parseLevel } from "./core/levels.js";
 export type { LevelInput } from "./core/levels.js";
 
-export { createRecord, utcTimestamp } from "./core/records.js";
+export {
+  LEGACY_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+  createRecord,
+  parseRecord,
+  utcTimestamp,
+} from "./core/records.js";
+export type { LLMBlock } from "./core/records.js";
 export type { LogRecord } from "./core/records.js";
 
 export { JSONFormatter } from "./core/formatter.js";

@@ -167,7 +167,7 @@ export class Logger {
 
     const parentSpanId = currentSpanId();
     if (parentSpanId !== undefined) {
-      record.meta.parentSpanId ??= parentSpanId;
+      record.meta.parent_span_id ??= parentSpanId;
     }
 
     for (const plugin of this.plugins) {
@@ -268,11 +268,11 @@ export class Logger {
   /**
    * `await logger.span("callLlm", async () => {...})` — runs `fn`, and on
    * settling (success or throw) emits one record for the span itself
-   * carrying `meta.spanId` and `meta.durationMs`. Every record logged
+   * carrying `meta.span_id` and `meta.duration_ms`. Every record logged
    * inside `fn` — through any method, and through any further `await` —
-   * is automatically stamped with `meta.parentSpanId` pointing at this
+   * is automatically stamped with `meta.parent_span_id` pointing at this
    * span, so nested/sub-agent calls reconstruct their exact nesting when
-   * sorted by `spanId`/`parentSpanId`.
+   * sorted by `span_id`/`parent_span_id`.
    *
    * Still emits its record — at `ERROR`, with `meta.error` set — if `fn`
    * throws; the error itself propagates unchanged to the caller.
@@ -305,12 +305,12 @@ export class Logger {
     error?: unknown,
   ): void {
     const fullMeta: Record<string, unknown> = {
-      spanId,
-      durationMs: Math.round(durationMs * 1000) / 1000,
+      span_id: spanId,
+      duration_ms: Math.round(durationMs * 1000) / 1000,
       ...meta,
     };
     if (explicitParentSpanId !== undefined) {
-      fullMeta.parentSpanId = explicitParentSpanId;
+      fullMeta.parent_span_id = explicitParentSpanId;
     }
     fullMeta.kind ??= "span";
     if (error !== undefined) {

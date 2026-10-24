@@ -11,7 +11,7 @@ describe("TraceContextPlugin", () => {
     const logger = new Logger("app.test", { plugins: [new TraceContextPlugin()] });
 
     const record = logger.info("step");
-    const traceId = record?.meta.traceId;
+    const traceId = record?.meta.trace_id;
 
     expect(typeof traceId).toBe("string");
     expect((traceId as string).length).toBe(32);
@@ -21,9 +21,9 @@ describe("TraceContextPlugin", () => {
   it("does not override an existing traceId", () => {
     const logger = new Logger("app.test", { plugins: [new TraceContextPlugin()] });
 
-    const record = logger.info("step", { traceId: "already-set" });
+    const record = logger.info("step", { trace_id: "already-set" });
 
-    expect(record?.meta.traceId).toBe("already-set");
+    expect(record?.meta.trace_id).toBe("already-set");
   });
 
   it("supports a custom traceKey", () => {
@@ -34,7 +34,7 @@ describe("TraceContextPlugin", () => {
     const record = logger.info("step");
 
     expect(record?.meta.correlationId).toBeDefined();
-    expect(record?.meta.traceId).toBeUndefined();
+    expect(record?.meta.trace_id).toBeUndefined();
   });
 
   it("parses an explicit traceparent constructor option", () => {
@@ -43,7 +43,7 @@ describe("TraceContextPlugin", () => {
       plugins: [new TraceContextPlugin({ traceparent: header })],
     });
 
-    expect(logger.info("step")?.meta.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(logger.info("step")?.meta.trace_id).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
   });
 
   it("setTraceparent propagates via AsyncLocalStorage, and reset restores generation", () => {
@@ -54,10 +54,10 @@ describe("TraceContextPlugin", () => {
     const record = logger.info("step");
     reset();
 
-    expect(record?.meta.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(record?.meta.trace_id).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
 
     const recordAfter = logger.info("step 2");
-    expect(recordAfter?.meta.traceId).not.toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(recordAfter?.meta.trace_id).not.toBe("4bf92f3577b34da6a3ce929d0e0e4736");
   });
 
   it("an active OTel span wins over a header, via an injected resolver", () => {
@@ -71,7 +71,7 @@ describe("TraceContextPlugin", () => {
       ],
     });
 
-    expect(logger.info("step")?.meta.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(logger.info("step")?.meta.trace_id).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
   });
 
   it("falls back gracefully when @opentelemetry/api is not installed", () => {
@@ -80,7 +80,7 @@ describe("TraceContextPlugin", () => {
       plugins: [new TraceContextPlugin({ traceparent: header })],
     });
 
-    expect(logger.info("step")?.meta.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(logger.info("step")?.meta.trace_id).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
   });
 });
 

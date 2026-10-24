@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { Logger } from "../../../src/index.js";
-import { CloudWatchTransport, type CloudWatchClientLike, type CloudWatchLogEvent } from "../../../src/transports/cloud/cloudwatch-transport.js";
+import {
+  CloudWatchTransport,
+  type CloudWatchClientLike,
+  type CloudWatchLogEvent,
+} from "../../../src/transports/cloud/cloudwatch-transport.js";
 
 function fakeClient(): CloudWatchClientLike & {
   calls: { logGroupName: string; logStreamName: string; events: readonly CloudWatchLogEvent[] }[];
 } {
-  const calls: { logGroupName: string; logStreamName: string; events: readonly CloudWatchLogEvent[] }[] = [];
+  const calls: {
+    logGroupName: string;
+    logStreamName: string;
+    events: readonly CloudWatchLogEvent[];
+  }[] = [];
   return {
     calls,
     putLogEvents(logGroupName, logStreamName, events) {
@@ -61,7 +69,12 @@ describe("CloudWatchTransport", () => {
 
   it("close() flushes a partial batch", async () => {
     const client = fakeClient();
-    const transport = new CloudWatchTransport({ client, logGroupName: "g", logStreamName: "s", maxRecords: 10 });
+    const transport = new CloudWatchTransport({
+      client,
+      logGroupName: "g",
+      logStreamName: "s",
+      maxRecords: 10,
+    });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("only one");

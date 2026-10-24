@@ -10,7 +10,7 @@ import type { LogRecord } from "../../core/records.js";
  * - `@timestamp` from `timestamp`
  * - `log.level` from `level`, lowercased
  * - `service.name` from `logger`
- * - `trace.id` / `span.id` from `meta.traceId` / `meta.spanId`, when present
+ * - `trace.id` / `span.id` from `meta.trace_id` / `meta.span_id`, when present
  * - `error.message` / `error.stack_trace` when `meta.stack` is present
  *   (`error.message` reuses the record's own `message`)
  *
@@ -24,11 +24,10 @@ export function toEcsDocument(record: LogRecord): Record<string, unknown> {
   document.log = { level: record.level.toLowerCase() };
   document.service = { name: record.logger };
 
-  // snake_case is accepted too: it is the cross-language wire casing.
-  const traceId = meta.traceId ?? meta.trace_id;
+  const traceId = meta.trace_id;
   if (traceId !== undefined && traceId !== null) document.trace = { id: traceId };
 
-  const spanId = meta.spanId ?? meta.span_id;
+  const spanId = meta.span_id;
   if (spanId !== undefined && spanId !== null) document.span = { id: spanId };
 
   if (typeof meta.stack === "string") {

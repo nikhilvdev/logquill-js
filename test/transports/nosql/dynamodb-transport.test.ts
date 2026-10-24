@@ -34,33 +34,33 @@ describe("DynamoDBTransport", () => {
     const transport = new DynamoDBTransport({ client, tableName: "custom-logs", maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("only one", { runId: "run-1", spanId: "span-1" });
+    logger.info("only one", { run_id: "run-1", span_id: "span-1" });
     await logger.flush();
     transport.close();
 
     expect(client.calls).toHaveLength(1);
     expect(client.calls[0]?.tableName).toBe("custom-logs");
     const [item] = client.calls[0]?.items as [DynamoLogItem];
-    expect(item.runId).toBe("run-1");
-    expect(item.spanId).toBe("span-1");
+    expect(item.run_id).toBe("run-1");
+    expect(item.span_id).toBe("span-1");
     expect(item.message).toBe("only one");
     expect(item.logger).toBe("app.test");
     expect(typeof item.timestamp).toBe("string");
   });
 
-  it("falls back to traceId, then the logger name, for the partition key when runId is absent", async () => {
+  it("falls back to trace_id, then the logger name, for the partition key when run_id is absent", async () => {
     const client = fakeClient();
     const transport = new DynamoDBTransport({ client });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("has trace only", { traceId: "trace-1" });
+    logger.info("has trace only", { trace_id: "trace-1" });
     logger.info("has neither");
     await logger.flush();
     transport.close();
 
     const items = client.calls[0]?.items as DynamoLogItem[];
-    expect(items[0]?.runId).toBe("trace-1");
-    expect(items[1]?.runId).toBe("app.test");
+    expect(items[0]?.run_id).toBe("trace-1");
+    expect(items[1]?.run_id).toBe("app.test");
   });
 
   it("chunks a batch of 30 records into two BatchWriteItem-equivalent calls of 25 and 5", async () => {

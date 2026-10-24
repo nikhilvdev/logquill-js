@@ -1,15 +1,18 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { GENESIS_HASH, Logger, TamperEvidentPlugin, type LogRecord } from "../../src/index.js";
 
 describe("TamperEvidentPlugin", () => {
-  it("each record gets a hash and prevHash", () => {
+  it("each record gets a hash and prev_hash", () => {
     const logger = new Logger("app.test", { plugins: [new TamperEvidentPlugin()] });
 
     const record = logger.info("hello");
 
     expect(record).not.toBeNull();
     expect(typeof record?.meta.hash).toBe("string");
-    expect(record?.meta.prevHash).toBe(GENESIS_HASH);
+    expect(record?.meta.prev_hash).toBe(GENESIS_HASH);
   });
 
   it("the chain links consecutive records", () => {
@@ -20,7 +23,7 @@ describe("TamperEvidentPlugin", () => {
 
     expect(first).not.toBeNull();
     expect(second).not.toBeNull();
-    expect(second?.meta.prevHash).toBe(first?.meta.hash);
+    expect(second?.meta.prev_hash).toBe(first?.meta.hash);
   });
 
   it("verifyChain passes on an untampered log", () => {
@@ -57,5 +60,27 @@ describe("TamperEvidentPlugin", () => {
 
   it("verifyChain on empty input is true", () => {
     expect(TamperEvidentPlugin.verifyChain([])).toBe(true);
+  });
+});
+
+describe("cross-language chain", () => {
+  const chain = JSON.parse(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "schema", "golden_chain.json"), "utf8"),
+  ) as LogRecord[];
+
+  it("verifies a chain logquill-python wrote, including non-ASCII, control characters, small floats and an llm block", () => {
+    expect(TamperEvidentPlugin.verifyChain(chain)).toBe(true);
+  });
+
+  it("detects an edit to a Python-written record, to its llm block, or to its schema_version", () => {
+    for (const edit of [
+      (r: LogRecord) => (r.message += "x"),
+      (r: LogRecord) => (r.llm = { model: "other" }),
+      (r: LogRecord) => (r.schema_version = "2.1"),
+    ]) {
+      const copy = structuredClone(chain);
+      edit(copy[1] as LogRecord);
+      expect(TamperEvidentPlugin.verifyChain(copy)).toBe(false);
+    }
   });
 });

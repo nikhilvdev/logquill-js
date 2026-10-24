@@ -4,8 +4,37 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+This release changes the record contract shared with `logquill-python`. See
+`MIGRATING.md` for how to move a 1.x deployment over.
+
+- Every record now carries `schema_version: "2.0"`, and LLM-call records can
+  carry an `llm` block (`model`, `tokens_in`, `tokens_out`, `cost_usd`,
+  `latency_ms`, `finish_reason`).
+- The named `meta` keys are now snake_case on the wire, matching
+  `logquill-python`: `run_id`, `span_id`, `parent_span_id`, `trace_id`,
+  `duration_ms`, `prev_hash`. They were camelCase (`runId`, `spanId`, ...).
+  Options you pass in code (`RunPlugin({ runId })`, `span(name, fn, { spanId })`)
+  keep their camelCase names.
+- `TraceContextPlugin` and `SamplingPlugin` default their `traceKey` to
+  `"trace_id"`.
+- SQL transports write `run_id`, `span_id`, `parent_span_id` and `trace_id`
+  columns, and `DynamoDBTransport` items use the same attribute names (the
+  partition key is `run_id`). Existing tables need migrating.
+- `TamperEvidentPlugin` hashes the same bytes `logquill-python` does
+  (`json.dumps(sort_keys=True)` formatting, ASCII escapes) and now also covers
+  `schema_version` and `llm`, so a chain written by either package verifies in
+  the other. Chains written by 1.x do not verify.
+
 ### Added
 
+- `parseRecord()` reads a decoded log line from either package, labels a 1.x
+  record `"1.0"`, renames the camelCase named `meta` keys logquill-js 1.x
+  wrote, and refuses a newer major version with a message saying to upgrade.
+- `schema/record.schema.json` and `schema/golden_records.json`, copied from
+  `logquill-python`, and a contract test that runs the golden records through
+  the schema (with `ajv`) and the parser.
 - `loggerFromFile()`, `loggerFromEnv()` and `loadConfig()`: build a `Logger`
   from a JSON or YAML file (YAML needs the optional `yaml` package) in the
   same shape `logquill-python` reads. `LOGQUILL_CONFIG_FILE` names the file
@@ -174,11 +203,11 @@ now `async`.
   Previously, the stack-based fallback these use in place of
   `AsyncLocalStorage` popped its frame the moment the async callback
   returned its (still-pending) promise, rather than once that promise
-  settled — so any log call made *after* an `await` inside a `span()` or
+  settled — so any log call made _after_ an `await` inside a `span()` or
   `bindContext()` block silently lost its `parentSpanId`/bound context,
   even with only one block in flight. This affected every release with
   the browser build, since it was never actually exercised by a test.
-  Two *concurrent*, overlapping blocks on the same stack can still
+  Two _concurrent_, overlapping blocks on the same stack can still
   interleave and see each other's values — that part was and remains a
   documented trade-off of not having `AsyncLocalStorage` in a browser.
 
@@ -254,7 +283,7 @@ Trace correlation & agentic tracing:
   callback-handler system.
 
   Ships as a **separate entry point**, `import { LangChainAdapter } from
-  "logquill/langchain"` (new `dist/langchain.{mjs,cjs,d.ts}` build target,
+"logquill/langchain"` (new `dist/langchain.{mjs,cjs,d.ts}` build target,
   `@langchain/core` as an optional peer dependency) — not from the main
   `"logquill"` import. This is a deliberate deviation from this repo's
   original plan of a fully separate `logquill-langchain` npm package: it
@@ -347,7 +376,7 @@ work) and always-batched inserts.
 - `MySQLTransport`: batches formatted records into one parameterized
   multi-row `INSERT` per flush via the optional `mysql2` peer dependency,
   with dialect-correct `AUTO_INCREMENT`/`JSON` schema for `ensureSchema:
-  true` dev/test use.
+true` dev/test use.
 - Production schema/migrations remain the caller's responsibility, per
   LogQuill's existing stance on auto-created schema.
 

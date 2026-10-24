@@ -8,13 +8,13 @@ describe("RunPlugin", () => {
 
     const record = logger.info("step");
 
-    expect(record?.meta.runId).toBe(plugin.runId);
+    expect(record?.meta.run_id).toBe(plugin.runId);
   });
 
   it("accepts an explicit runId", () => {
     const logger = new Logger("app.test", { plugins: [new RunPlugin({ runId: "run-123" })] });
 
-    expect(logger.info("step")?.meta.runId).toBe("run-123");
+    expect(logger.info("step")?.meta.run_id).toBe("run-123");
   });
 
   it("increments step per record", () => {
@@ -28,9 +28,9 @@ describe("RunPlugin", () => {
   it("does not override an existing runId", () => {
     const logger = new Logger("app.test", { plugins: [new RunPlugin({ runId: "run-1" })] });
 
-    const record = logger.info("propagated", { runId: "upstream-run" });
+    const record = logger.info("propagated", { run_id: "upstream-run" });
 
-    expect(record?.meta.runId).toBe("upstream-run");
+    expect(record?.meta.run_id).toBe("upstream-run");
   });
 
   it("two instances track independent counters", () => {
@@ -42,6 +42,6 @@ describe("RunPlugin", () => {
     const recordB = b.info("b1");
 
     expect(recordB?.meta.step).toBe(0);
-    expect(recordB?.meta.runId).toBe("run-b");
+    expect(recordB?.meta.run_id).toBe("run-b");
   });
 });

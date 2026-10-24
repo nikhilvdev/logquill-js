@@ -111,7 +111,7 @@ export function defaultResolveActiveOtelTraceId(): string | undefined {
 
 /** Options for {@link TraceContextPlugin}. */
 export interface TraceContextPluginOptions {
-  /** `meta` key the trace id is written to. Default `"traceId"`. */
+  /** `meta` key the trace id is written to. Default `"trace_id"`. */
   traceKey?: string;
   /** An inbound trace header to resolve on every record, bypassing `setTraceparent()`. */
   traceparent?: string;
@@ -120,9 +120,9 @@ export interface TraceContextPluginOptions {
 }
 
 /**
- * Stamps `meta.traceId` for cross-service correlation — distinct from
- * `RunPlugin`'s `runId`: `traceId` follows one request across services,
- * `runId` scopes one agent run.
+ * Stamps `meta.trace_id` for cross-service correlation — distinct from
+ * `RunPlugin`'s `run_id`: `trace_id` follows one request across services,
+ * `run_id` scopes one agent run.
  *
  * A record that already carries `meta[traceKey]` (e.g. because
  * `SamplingPlugin`'s tail-based elevation, or an upstream plugin, already
@@ -148,9 +148,10 @@ export class TraceContextPlugin implements Plugin {
   private readonly resolveActiveOtelTraceId: () => string | undefined;
 
   constructor(options: TraceContextPluginOptions = {}) {
-    this.traceKey = options.traceKey ?? "traceId";
+    this.traceKey = options.traceKey ?? "trace_id";
     this.explicitTraceparent = options.traceparent;
-    this.resolveActiveOtelTraceId = options.resolveActiveOtelTraceId ?? defaultResolveActiveOtelTraceId;
+    this.resolveActiveOtelTraceId =
+      options.resolveActiveOtelTraceId ?? defaultResolveActiveOtelTraceId;
   }
 
   beforeLog(record: LogRecord): LogRecord {

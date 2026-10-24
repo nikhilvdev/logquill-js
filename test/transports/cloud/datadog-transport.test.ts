@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { Logger } from "../../../src/index.js";
-import { DatadogTransport, type DatadogSender } from "../../../src/transports/cloud/datadog-transport.js";
+import {
+  DatadogTransport,
+  type DatadogSender,
+} from "../../../src/transports/cloud/datadog-transport.js";
 
 function fakeSender(): DatadogSender & { calls: [string, string, readonly string[]][] } {
   const calls: [string, string, readonly string[]][] = [];
@@ -22,7 +25,11 @@ describe("DatadogTransport", () => {
     expect(transport.url).toBe("https://http-intake.logs.datadoghq.com/api/v2/logs");
 
     const euSender = fakeSender();
-    const euTransport = new DatadogTransport({ apiKey: "key123", site: "datadoghq.eu", sender: euSender });
+    const euTransport = new DatadogTransport({
+      apiKey: "key123",
+      site: "datadoghq.eu",
+      sender: euSender,
+    });
     expect(euTransport.url).toBe("https://http-intake.logs.datadoghq.eu/api/v2/logs");
   });
 

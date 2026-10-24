@@ -28,17 +28,28 @@ describe("ElasticsearchTransport", () => {
         new ElasticsearchTransport({ node: "https://localhost:9200", sender, maxRecords: 1 }),
       ],
     });
-    logger.error("boom", { traceId: "t1" });
+    const record = logger.error("boom", { trace_id: "t1" });
     await logger.flush();
     const body = (sender.calls[0] as [string, Readonly<Record<string, string>>, string])[2];
     const doc = JSON.parse(body.split("\n")[1] ?? "{}") as Record<string, unknown>;
     expect(doc).toMatchObject({
-      "@timestamp": doc.timestamp,
+      "@timestamp": record?.timestamp,
       log: { level: "error" },
       service: { name: "app.test" },
       trace: { id: "t1" },
       level: "ERROR",
     });
+  });
+
+  it("warns that a custom formatter is ignored", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    new ElasticsearchTransport({
+      node: "https://localhost:9200",
+      sender: fakeSender(),
+      formatter: { format: () => "" },
+    });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/`formatter` option is ignored/));
+    warn.mockRestore();
   });
 
   it("builds the bulk URL from node, trimming a trailing slash", () => {

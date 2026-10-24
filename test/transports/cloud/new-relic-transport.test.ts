@@ -43,7 +43,11 @@ describe("NewRelicTransport", () => {
 
   it("sends the license key in the Api-Key header", async () => {
     const sender = fakeSender();
-    const transport = new NewRelicTransport({ licenseKey: "my-license-key", sender, maxRecords: 1 });
+    const transport = new NewRelicTransport({
+      licenseKey: "my-license-key",
+      sender,
+      maxRecords: 1,
+    });
     const logger = new Logger("app.test", { transports: [transport] });
 
     logger.info("hello");
@@ -75,7 +79,10 @@ describe("NewRelicTransport", () => {
     await logger.flush();
 
     expect(record?.meta.eventType).toBe("reserved"); // original record left unmutated
-    const sentMeta = parseBody((sender.calls[0] as RecordedCall).body)[0]?.meta as Record<string, unknown>;
+    const sentMeta = parseBody((sender.calls[0] as RecordedCall).body)[0]?.meta as Record<
+      string,
+      unknown
+    >;
     expect(sentMeta.eventType).toBeUndefined();
     expect(sentMeta.other).toBe("kept");
   });

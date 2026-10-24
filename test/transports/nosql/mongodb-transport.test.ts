@@ -34,7 +34,7 @@ describe("MongoDBTransport", () => {
     const transport = new MongoDBTransport({ collection, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("only one", { runId: "run-1" });
+    logger.info("only one", { run_id: "run-1" });
     await logger.flush();
     transport.close();
 
@@ -43,7 +43,7 @@ describe("MongoDBTransport", () => {
     expect(doc.message).toBe("only one");
     expect(doc.logger).toBe("app.test");
     expect(doc.level).toBe("INFO");
-    expect(doc.meta).toEqual({ runId: "run-1" });
+    expect(doc.meta).toEqual({ run_id: "run-1" });
     expect(typeof doc.timestamp).toBe("string");
   });
 

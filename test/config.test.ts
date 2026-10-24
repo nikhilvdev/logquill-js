@@ -42,7 +42,12 @@ describe("loadConfig", () => {
 
   it("resolves a class entry from a module and export name", async () => {
     const logger = await loadConfig({
-      transports: [{ class: "../src/index.js#ConsoleTransport", options: { colorize: false } }],
+      transports: [
+        {
+          class: `${new URL("../src/index.ts", import.meta.url).href}#ConsoleTransport`,
+          options: { colorize: false },
+        },
+      ],
     });
     expect((logger as unknown as { transports: unknown[] }).transports).toHaveLength(1);
   });
@@ -92,5 +97,22 @@ describe("loggerFromEnv", () => {
 
   it("works with no environment set", async () => {
     expect(await loggerFromEnv()).toBeDefined();
+  });
+});
+
+describe("class entries", () => {
+  it("resolve a relative module against the config file, not the library", async () => {
+    write(
+      "my-transport.mjs",
+      "export class MyTransport { constructor(o) { this.o = o; this.formatter = { format: () => '' }; } format() { return ''; } write() {} close() {} }",
+    );
+    const logger = await loggerFromFile(
+      write(
+        "rel.json",
+        '{"transports":[{"class":"./my-transport.mjs#MyTransport","options":{"a_b":1}}]}',
+      ),
+    );
+    const [transport] = (logger as unknown as { transports: { o: unknown }[] }).transports;
+    expect(transport?.o).toEqual({ aB: 1 });
   });
 });

@@ -31,29 +31,29 @@ describe("KafkaTransport", () => {
     expect(client.sendCalls[0]?.messages).toHaveLength(2);
   });
 
-  it("keys messages by meta.runId so same-run messages land on one partition", async () => {
+  it("keys messages by meta.run_id so same-run messages land on one partition", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("step", { runId: "run-42", traceId: "trace-99" });
+    logger.info("step", { run_id: "run-42", trace_id: "trace-99" });
     await logger.flush();
 
     expect(client.sendCalls[0]?.messages[0]?.key).toBe("run-42");
   });
 
-  it("falls back to meta.traceId when meta.runId is absent", async () => {
+  it("falls back to meta.trace_id when meta.run_id is absent", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("step", { traceId: "trace-99" });
+    logger.info("step", { trace_id: "trace-99" });
     await logger.flush();
 
     expect(client.sendCalls[0]?.messages[0]?.key).toBe("trace-99");
   });
 
-  it("keys with null when neither runId nor traceId is present", async () => {
+  it("keys with null when neither run_id nor trace_id is present", async () => {
     const client = fakeProducer();
     const transport = new KafkaTransport({ topic: "app-logs", client, maxRecords: 1 });
     const logger = new Logger("app.test", { transports: [transport] });

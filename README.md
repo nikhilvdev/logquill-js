@@ -29,7 +29,7 @@ the full history.
 - **Child loggers** — `.child()` inherits level, transports, and plugins, and merges its own `meta` on top
 - **Typed throughout** — TypeScript strict mode, no `any` in the public API
 - **Dual package** — works via both `require()` (CJS) and `import` (ESM) from the same published package
-- **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/durationMs-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `traceId`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
+- **Tracing & agentic logging** — `.thought()/.action()/.observation()/.decision()`, `Logger.span()` for nested/duration_ms-stamped spans, `RunPlugin` (per-run id + step counter), and `TraceContextPlugin` (cross-service `trace_id`, OTel-aware) — see [Tracing & agentic logging](#tracing--agentic-logging)
 - **LangChain.js / LangGraph.js adapter** — `LangChainAdapter`, a `BaseCallbackHandler` that maps chain/LLM/tool/agent events onto the calls above with zero manual instrumentation, from a separate `logquill/langchain` entry point — see [Agentic framework adapters](#agentic-framework-adapters)
 - **OpenTelemetry-native integration** — `OtelSpanProcessor` bridges frameworks that emit OTel spans directly (e.g. the Vercel AI SDK) onto `.action()`/`.observation()`/`.error()`, with zero real dependency on `@opentelemetry/*` — see [OpenTelemetry-native integration](#opentelemetry-native-integration)
 - **Non-blocking async dispatch** — a call returns before its write runs, via a bounded internal queue with a configurable backpressure policy (`dropOldest`/`dropNewest`/`block`); `logger.flush()`, `withLambda`/`withCloudFunction`/`withAzureFunction`, and `installShutdownHandlers` cover draining it before a process pauses or exits — see [Async dispatch & shutdown](#async-dispatch--shutdown)
@@ -89,7 +89,9 @@ logger.debug("now visible"); // -> a record
 ```
 
 Every log call returns the record (or `null` if filtered by level) —
-`{"timestamp": ISO8601, "level": string, "logger": string, "message": string, "meta": object}`,
+`{"schema_version": "2.0", "timestamp": ISO8601, "level": string, "logger": string, "message": string, "meta": object}`
+(plus an optional `llm` block on LLM-call records; named `meta` keys such as `run_id`, `span_id` and
+`duration_ms` are snake_case on the wire, in both languages — see [`schema/README.md`](schema/README.md) and [MIGRATING.md](MIGRATING.md)),
 the same shape shared with [`logquill` on PyPI](https://pypi.org/project/logquill/).
 Use `JSONFormatter` to serialize a record to the canonical JSON line:
 
@@ -97,7 +99,7 @@ Use `JSONFormatter` to serialize a record to the canonical JSON line:
 import { JSONFormatter } from "logquill";
 
 console.log(new JSONFormatter().format(record));
-// '{"timestamp":"2026-08-29T07:12:55.968Z","level":"INFO","logger":"app","message":"user signed up","meta":{"user_id":42,"plan":"pro"}}'
+// '{"schema_version":"2.0","timestamp":"2026-08-29T07:12:55.968Z","level":"INFO","logger":"app","message":"user signed up","meta":{"user_id":42,"plan":"pro"}}'
 ```
 
 For eyes instead of machines, `TextFormatter` renders one readable entry and
@@ -105,18 +107,39 @@ For eyes instead of machines, `TextFormatter` renders one readable entry and
 throw on odd `meta` values, and match `logquill-python`'s output byte for byte:
 
 ```ts
-import { ConsoleTransport, LogfmtFormatter, TextFormatter, parse, parseLogfmt, TEXT_LOG_PATTERN, TEXT_LOG_CASTS } from "logquill";
+import {
+  ConsoleTransport,
+  FileTransport,
+  Logger,
+  LogfmtFormatter,
+  TextFormatter,
+  parse,
+  parseLogfmt,
+  TEXT_LOG_PATTERN,
+  TEXT_LOG_CASTS,
+} from "logquill";
 
-new ConsoleTransport({ formatter: new TextFormatter() });
+const text = new Logger("app.api", {
+  transports: [
+    new ConsoleTransport({ formatter: new TextFormatter(), colorize: false }),
+    new FileTransport("app.log", { formatter: new TextFormatter() }),
+  ],
+});
+text.info("user signed up", { userId: 42 });
 // 2026-01-01T00:00:00.000Z INFO  app.api: user signed up {"userId":42}
-new ConsoleTransport({ formatter: new LogfmtFormatter() });
+
+const logfmt = new Logger("app.api", {
+  transports: [new ConsoleTransport({ formatter: new LogfmtFormatter(), colorize: false })],
+});
+logfmt.info("user signed up", { userId: 42 });
 // timestamp=2026-01-01T00:00:00.000Z level=INFO logger=app.api message="user signed up" userId=42
 
 parseLogfmt('level=INFO message="user signed up"'); // { level: "INFO", message: "user signed up" }
 
-// Stream structured fields out of any log file, one object per matching line:
+// Stream structured fields back out of a log file, one object per matching line:
+await text.flush();
 for await (const entry of parse("app.log", TEXT_LOG_PATTERN, { cast: TEXT_LOG_CASTS })) {
-  console.log(entry.level, entry.meta);
+  console.log(entry.level, entry.meta); // INFO { userId: 42 }
 }
 ```
 
@@ -152,29 +175,29 @@ record is dispatched to every attached transport synchronously
 is an **optional peer dependency** — `npm install` only pulls in what you
 actually import; nothing is installed on your behalf.
 
-| Transport | Backend | Peer dependency | Setup |
-|---|---|---|---|
-| `ConsoleTransport` | stdout/stderr via `console.*` | *(none)* | zero-setup, isomorphic |
-| `BeaconTransport` | browser log endpoint, via `navigator.sendBeacon` | *(none, isomorphic)* | zero-setup — see [Browser build](#browser-build) |
-| `FileTransport` | local file, with rotation | *(none)* | zero-setup |
-| `HTTPTransport` | any HTTP log endpoint | *(none, uses `fetch`)* | zero-setup |
-| `SQLiteTransport` | SQLite | `better-sqlite3` | zero-setup (file or `:memory:`) |
-| `PostgresTransport` | PostgreSQL | `pg` | needs a server |
-| `MySQLTransport` | MySQL | `mysql2` | needs a server |
-| `MongoDBTransport` | MongoDB | `mongodb` | needs a server |
-| `DynamoDBTransport` | AWS DynamoDB | `@aws-sdk/client-dynamodb` | needs an AWS account |
-| `RedisTransport` | Redis Streams | `redis` | needs a server |
-| `KafkaTransport` | Kafka | `kafkajs` | needs a broker |
-| `RabbitMQTransport` | RabbitMQ | `amqplib` | needs a broker |
-| `SQSTransport` | AWS SQS | `@aws-sdk/client-sqs` | needs an AWS account |
-| `PubSubTransport` | GCP Pub/Sub | `@google-cloud/pubsub` | needs a GCP account |
-| `CloudWatchTransport` | AWS CloudWatch Logs | `@aws-sdk/client-cloudwatch-logs` | needs an AWS account |
-| `CloudLoggingTransport` | GCP Cloud Logging | `@google-cloud/logging` | needs a GCP account |
-| `AppInsightsTransport` | Azure Application Insights | `applicationinsights` | needs an Azure account |
-| `DatadogTransport` | Datadog Logs | *(none, uses `fetch`)* | needs a Datadog account |
-| `ElasticsearchTransport` | Elasticsearch `_bulk` API | *(none, uses `fetch`)* | needs a cluster |
-| `SyslogTransport` | RFC 5424 syslog over UDP/TCP | *(none, uses `dgram`/`net`)* | needs a syslog server |
-| `NewRelicTransport` | New Relic Log API | *(none, uses `fetch`)* | needs a New Relic account |
+| Transport                | Backend                                          | Peer dependency                   | Setup                                            |
+| ------------------------ | ------------------------------------------------ | --------------------------------- | ------------------------------------------------ |
+| `ConsoleTransport`       | stdout/stderr via `console.*`                    | _(none)_                          | zero-setup, isomorphic                           |
+| `BeaconTransport`        | browser log endpoint, via `navigator.sendBeacon` | _(none, isomorphic)_              | zero-setup — see [Browser build](#browser-build) |
+| `FileTransport`          | local file, with rotation                        | _(none)_                          | zero-setup                                       |
+| `HTTPTransport`          | any HTTP log endpoint                            | _(none, uses `fetch`)_            | zero-setup                                       |
+| `SQLiteTransport`        | SQLite                                           | `better-sqlite3`                  | zero-setup (file or `:memory:`)                  |
+| `PostgresTransport`      | PostgreSQL                                       | `pg`                              | needs a server                                   |
+| `MySQLTransport`         | MySQL                                            | `mysql2`                          | needs a server                                   |
+| `MongoDBTransport`       | MongoDB                                          | `mongodb`                         | needs a server                                   |
+| `DynamoDBTransport`      | AWS DynamoDB                                     | `@aws-sdk/client-dynamodb`        | needs an AWS account                             |
+| `RedisTransport`         | Redis Streams                                    | `redis`                           | needs a server                                   |
+| `KafkaTransport`         | Kafka                                            | `kafkajs`                         | needs a broker                                   |
+| `RabbitMQTransport`      | RabbitMQ                                         | `amqplib`                         | needs a broker                                   |
+| `SQSTransport`           | AWS SQS                                          | `@aws-sdk/client-sqs`             | needs an AWS account                             |
+| `PubSubTransport`        | GCP Pub/Sub                                      | `@google-cloud/pubsub`            | needs a GCP account                              |
+| `CloudWatchTransport`    | AWS CloudWatch Logs                              | `@aws-sdk/client-cloudwatch-logs` | needs an AWS account                             |
+| `CloudLoggingTransport`  | GCP Cloud Logging                                | `@google-cloud/logging`           | needs a GCP account                              |
+| `AppInsightsTransport`   | Azure Application Insights                       | `applicationinsights`             | needs an Azure account                           |
+| `DatadogTransport`       | Datadog Logs                                     | _(none, uses `fetch`)_            | needs a Datadog account                          |
+| `ElasticsearchTransport` | Elasticsearch `_bulk` API                        | _(none, uses `fetch`)_            | needs a cluster                                  |
+| `SyslogTransport`        | RFC 5424 syslog over UDP/TCP                     | _(none, uses `dgram`/`net`)_      | needs a syslog server                            |
+| `NewRelicTransport`      | New Relic Log API                                | _(none, uses `fetch`)_            | needs a New Relic account                        |
 
 Every transport also accepts an injected client/sender in place of its
 default driver — the pattern every example below and every transport's own
@@ -248,8 +271,8 @@ console.log(sink.formatted); // ['{"timestamp":...,"message":"hello",...}']
 
 `SQLiteTransport`, `PostgresTransport`, and `MySQLTransport` all extend
 `BaseSQLTransport`, which owns a fixed `logs` table schema (`timestamp`,
-`level`, `logger`, `message`, `meta`, plus `runId`/`spanId`/`parentSpanId`/
-`traceId` for future trace correlation) and always batches inserts into one
+`level`, `logger`, `message`, `meta`, plus `run_id`/`span_id`/`parent_span_id`/
+`trace_id` for future trace correlation) and always batches inserts into one
 parameterized multi-row `INSERT` — never one query per log call. Each
 driver (`better-sqlite3`, `pg`, `mysql2`) is an **optional peer
 dependency** — install only the one you use, or inject a pre-built
@@ -272,7 +295,10 @@ logger.close();
 import { Logger, PostgresTransport } from "logquill";
 // npm install pg
 
-const transport = new PostgresTransport({ connectionString: process.env.DATABASE_URL, maxRecords: 100 });
+const transport = new PostgresTransport({
+  connectionString: process.env.DATABASE_URL,
+  maxRecords: 100,
+});
 const logger = new Logger("app", { transports: [transport] });
 
 logger.info("user signed up", { userId: "u_123" });
@@ -313,12 +339,12 @@ logger.info("user signed up", { userId: "u_123" });
 import { Logger, DynamoDBTransport } from "logquill";
 // npm install @aws-sdk/client-dynamodb
 
-// Partition key is meta.runId (falling back to meta.traceId, then the
+// Partition key is meta.run_id (falling back to meta.trace_id, then the
 // logger name); sort key is `timestamp`. Batches are chunked to respect
 // BatchWriteItem's 25-item cap.
 const transport = new DynamoDBTransport({ tableName: "app-logs", region: "us-east-1" });
 const logger = new Logger("app", { transports: [transport] });
-logger.info("order placed", { runId: "run-42", orderId: "o_9" });
+logger.info("order placed", { run_id: "run-42", orderId: "o_9" });
 ```
 
 ```ts
@@ -347,11 +373,11 @@ inject a pre-built client.
 import { Logger, KafkaTransport } from "logquill";
 // npm install kafkajs
 
-// Each message is keyed by meta.runId (falling back to meta.traceId), so
+// Each message is keyed by meta.run_id (falling back to meta.trace_id), so
 // kafkajs's default partitioner keeps one run/trace on the same partition.
 const transport = new KafkaTransport({ topic: "app-logs", brokers: ["localhost:9092"] });
 const logger = new Logger("app", { transports: [transport] });
-logger.info("order placed", { runId: "run-42", orderId: "o-123" });
+logger.info("order placed", { run_id: "run-42", orderId: "o-123" });
 logger.close();
 ```
 
@@ -401,7 +427,13 @@ import { Logger, CloudWatchTransport } from "logquill";
 // npm install @aws-sdk/client-cloudwatch-logs
 
 const logger = new Logger("app", {
-  transports: [new CloudWatchTransport({ logGroupName: "/my-app", logStreamName: "prod", region: "us-east-1" })],
+  transports: [
+    new CloudWatchTransport({
+      logGroupName: "/my-app",
+      logStreamName: "prod",
+      region: "us-east-1",
+    }),
+  ],
 });
 logger.info("service started");
 logger.close(); // flushes buffered log events
@@ -422,7 +454,9 @@ import { Logger, AppInsightsTransport } from "logquill";
 // npm install applicationinsights
 
 const logger = new Logger("app", {
-  transports: [new AppInsightsTransport({ connectionString: process.env.APPINSIGHTS_CONNECTION_STRING })],
+  transports: [
+    new AppInsightsTransport({ connectionString: process.env.APPINSIGHTS_CONNECTION_STRING }),
+  ],
 });
 logger.info("service started");
 ```
@@ -441,7 +475,11 @@ import { Logger, ElasticsearchTransport } from "logquill";
 
 const logger = new Logger("app", {
   transports: [
-    new ElasticsearchTransport({ node: "https://localhost:9200", index: "app-logs", apiKey: process.env.ES_API_KEY }),
+    new ElasticsearchTransport({
+      node: "https://localhost:9200",
+      index: "app-logs",
+      apiKey: process.env.ES_API_KEY,
+    }),
   ],
 });
 logger.info("service started");
@@ -469,7 +507,9 @@ import { Logger, NewRelicTransport } from "logquill";
 // Batches are gzip-compressed, and a 429 pauses further sends until the
 // `Retry-After` window elapses.
 const logger = new Logger("app", {
-  transports: [new NewRelicTransport({ licenseKey: process.env.NEW_RELIC_LICENSE_KEY!, region: "EU" })],
+  transports: [
+    new NewRelicTransport({ licenseKey: process.env.NEW_RELIC_LICENSE_KEY!, region: "EU" }),
+  ],
 });
 logger.info("service started");
 ```
@@ -496,6 +536,7 @@ needs the optional `yaml` package (`npm install yaml`).
 ```ts
 import { loggerFromEnv, loggerFromFile } from "logquill";
 
+// logquill.json is the JSON above, saved next to your entry point.
 const logger = await loggerFromFile("logquill.json", "app");
 
 // LOGQUILL_CONFIG_FILE points at such a file; LOGQUILL_LEVEL, if set, always wins.
@@ -507,7 +548,8 @@ are `context`, `redact`, `sampling`, `trace_context`, `run`, `pii_redact` and
 `tamper_evident`. Option names may be snake_case or camelCase. A transport's
 `formatter` may be `"json"`, `"text"` or `"logfmt"`. Anything else is referenced
 as `{ "class": "<module>#<ExportName>" }` and constructed with `options` as its
-single argument — that imports code, so only load config you trust. Python's
+single argument (a `./relative` module is resolved against the config file) — that
+imports code, so only load config you trust. Python's
 `async_dispatch` and `flush_at_exit` keys are ignored: dispatch here is always
 async, and shutdown flushing is opt-in via `installShutdownHandlers(logger)`.
 
@@ -545,7 +587,7 @@ logger.use((record) => {
 ### Tail-based sampling
 
 `SamplingPlugin` can do more than flat-rate sampling: pass `transports`
-and it buffers a sampled-out record under its `meta.traceId` instead of
+and it buffers a sampled-out record under its `meta.trace_id` instead of
 dropping it outright. If a later record on that same trace reaches
 `elevateAt` (default `ERROR`), the whole trace is flushed — every buffered
 record for it, plus everything from then on — so a request that turned out
@@ -561,9 +603,9 @@ const logger = new Logger("app", {
   plugins: [new SamplingPlugin(0.01, { transports: [sink] })], // keep 1%, but never lose an errored trace
 });
 
-logger.info("step 1", { traceId: "req-42" }); // likely dropped...
-logger.info("step 2", { traceId: "req-42" }); // ...and this one too
-logger.error("step 3 failed", { traceId: "req-42" }); // elevates req-42 — steps 1-3 all ship
+logger.info("step 1", { trace_id: "req-42" }); // likely dropped...
+logger.info("step 2", { trace_id: "req-42" }); // ...and this one too
+logger.error("step 3 failed", { trace_id: "req-42" }); // elevates req-42 — steps 1-3 all ship
 ```
 
 ### PII redaction
@@ -655,9 +697,9 @@ logger.decision("using search result #1");
 ```
 
 `Logger.span()` wraps an operation, emitting one record on completion with
-`meta.spanId`/`meta.durationMs` — every record logged inside it, including
-across an `await`, is automatically stamped with `meta.parentSpanId`, so a
-full run's nesting can be reconstructed by sorting on `spanId`/`parentSpanId`.
+`meta.span_id`/`meta.duration_ms` — every record logged inside it, including
+across an `await`, is automatically stamped with `meta.parent_span_id`, so a
+full run's nesting can be reconstructed by sorting on `span_id`/`parent_span_id`.
 It still emits (at `ERROR`, with `meta.error`) and rethrows if the block
 throws:
 
@@ -682,7 +724,7 @@ const answer = await logger.span(
 );
 ```
 
-`RunPlugin` stamps `meta.runId` (generated, or given explicitly) plus an
+`RunPlugin` stamps `meta.run_id` (generated, or given explicitly) plus an
 incrementing `meta.step` — attach a fresh instance per run so concurrent
 runs don't share a counter:
 
@@ -690,12 +732,12 @@ runs don't share a counter:
 import { Logger, RunPlugin } from "logquill";
 
 const runLogger = new Logger("app").child("agent").use(new RunPlugin());
-runLogger.thought("step one"); // meta: { kind: "thought", runId: "...", step: 0 }
-runLogger.action("step two");  // meta: { kind: "action", runId: "...", step: 1 }
+runLogger.thought("step one"); // meta: { kind: "thought", run_id: "...", step: 0 }
+runLogger.action("step two"); // meta: { kind: "action", run_id: "...", step: 1 }
 ```
 
-`TraceContextPlugin` stamps `meta.traceId`, for correlating one request
-across services — distinct from `runId`, which scopes one agent run. It
+`TraceContextPlugin` stamps `meta.trace_id`, for correlating one request
+across services — distinct from `run_id`, which scopes one agent run. It
 resolves, in priority order: an active OpenTelemetry span (if
 `@opentelemetry/api` is installed — never a required dependency), an
 inbound `traceparent`/X-Ray/GCP trace header, or a freshly generated id:
@@ -708,7 +750,7 @@ const logger = new Logger("app", { plugins: [new TraceContextPlugin()] });
 // in HTTP middleware, before the handler runs:
 const reset = setTraceparent(req.headers["traceparent"]);
 try {
-  logger.info("handling request"); // meta.traceId resolved from the inbound header
+  logger.info("handling request"); // meta.trace_id resolved from the inbound header
 } finally {
   reset();
 }
@@ -731,7 +773,7 @@ const handler = new LangChainAdapter(logger);
 
 const answerQuestion = RunnableLambda.from((question: string) => `answer: ${question}`);
 await answerQuestion.invoke("what is 2+2?", { callbacks: [handler] });
-// logs one record: { message: "RunnableLambda", meta: { kind: "span", spanId: "...", durationMs: ... } }
+// logs one record: { message: "RunnableLambda", meta: { kind: "span", span_id: "...", duration_ms: ... } }
 ```
 
 `LangGraphAdapter` is the same handler under its own name, for LangGraph.js
@@ -762,9 +804,9 @@ spans directly instead of calling into a handler object like
 `BaseCallbackHandler`. `OtelSpanProcessor` covers that case: register it on
 any OTel tracer provider, and every span becomes one `.action()` call on
 start plus one `.observation()` (or `.error()`, on an error status) call on
-end, carrying the span's own `spanId`/`parentSpanId` — OTel span ids are
+end, carrying the span's own `span_id`/`parent_span_id` — OTel span ids are
 already the same 16-hex-char shape LogQuill's own ids use — plus
-`meta.durationMs` on the end record:
+`meta.duration_ms` on the end record:
 
 ```ts
 import { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
@@ -834,7 +876,7 @@ once per `warnIntervalMs` (default 5000) — so sustained overload is
 visible without flooding your own logs with one warning per drop.
 
 `logger.flush()` waits for every record dispatched so far to reach its
-transports. Note it does *not* force a batching transport (SQL, a queue,
+transports. Note it does _not_ force a batching transport (SQL, a queue,
 `HTTPTransport`, ...) to send a batch still under its own threshold early
 — for that, use `withLambda`/`withCloudFunction`/`withAzureFunction`
 (same wrapper, three platform-matching names) around a serverless handler,
@@ -906,7 +948,7 @@ const logger = new Logger("app");
 
 await bindContext({ requestId: "abc123" }, async () => {
   await handleRequest(); // any logging in here, or in what it calls,
-                         // gets meta.requestId = "abc123" for free
+  // gets meta.requestId = "abc123" for free
 });
 
 function handleRequest() {
@@ -1008,10 +1050,10 @@ Keep `batchSize` small — `sendBeacon` payloads are capped (64KB in most
 browsers).
 
 One behavioral difference from the Node build: `Logger.span()`'s
-`parentSpanId` nesting is backed by a plain stack here instead of
+`parent_span_id` nesting is backed by a plain stack here instead of
 `AsyncLocalStorage` (which browsers don't have), so two spans on the same
 `Logger` running concurrently across an `await` can interleave and stamp
-the wrong `parentSpanId` — fine for the common case of one span in flight
+the wrong `parent_span_id` — fine for the common case of one span in flight
 at a time.
 
 ## API reference

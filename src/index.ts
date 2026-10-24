@@ -1,7 +1,14 @@
 export { Level, levelName, parseLevel } from "./core/levels.js";
 export type { LevelInput } from "./core/levels.js";
 
-export { createRecord, utcTimestamp } from "./core/records.js";
+export {
+  LEGACY_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+  createRecord,
+  parseRecord,
+  utcTimestamp,
+} from "./core/records.js";
+export type { LLMBlock } from "./core/records.js";
 export type { LogRecord } from "./core/records.js";
 
 export { JSONFormatter } from "./core/formatter.js";
@@ -57,7 +64,7 @@ export { SamplingPlugin } from "./plugins/sampling-plugin.js";
 export type { SamplingPluginOptions } from "./plugins/sampling-plugin.js";
 
 export { GENESIS_HASH, TamperEvidentPlugin } from "./plugins/tamper-evident-plugin.js";
-export type { TamperEvidentPluginOptions } from "./plugins/tamper-evident-plugin.js";
+export type { HashableRecord, TamperEvidentPluginOptions } from "./plugins/tamper-evident-plugin.js";
 
 export { AlertingPlugin } from "./plugins/alerting-plugin.js";
 export type { AlertingPluginOptions } from "./plugins/alerting-plugin.js";

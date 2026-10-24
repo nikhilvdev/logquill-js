@@ -4,10 +4,10 @@ import type { LogRecord } from "../../core/records.js";
 /** DynamoDB's hard cap on items per `BatchWriteItem` call — respected by chunking within `sendBatch()`. */
 const DYNAMO_BATCH_LIMIT = 25;
 
-/** One item written to DynamoDB: `runId` is the partition key, `timestamp` is the sort key. */
+/** One item written to DynamoDB: `run_id` is the partition key, `timestamp` is the sort key. */
 export interface DynamoLogItem {
-  /** Partition key: `record.meta.runId`, else `record.meta.traceId`, else the logger name. */
-  runId: string;
+  /** Partition key: `record.meta.run_id`, else `record.meta.trace_id`, else the logger name. */
+  run_id: string;
   /** Sort key: `record.timestamp`, as ISO8601. */
   timestamp: string;
   /** `record.level`. */
@@ -18,12 +18,12 @@ export interface DynamoLogItem {
   message: string;
   /** `record.meta`, stored as-is (DynamoDB items are schemaless). */
   meta: Record<string, unknown>;
-  /** `record.meta.spanId`, if present. */
-  spanId?: string;
-  /** `record.meta.parentSpanId`, if present. */
-  parentSpanId?: string;
-  /** `record.meta.traceId`, if present. */
-  traceId?: string;
+  /** `record.meta.span_id`, if present. */
+  span_id?: string;
+  /** `record.meta.parent_span_id`, if present. */
+  parent_span_id?: string;
+  /** `record.meta.trace_id`, if present. */
+  trace_id?: string;
 }
 
 /**
@@ -86,8 +86,8 @@ function marshallItem(item: DynamoLogItem): Record<string, unknown> {
 }
 
 /**
- * Sink for Amazon DynamoDB. Partition key is `runId`/`traceId` (whichever is
- * present on `record.meta`, `runId` taking priority), falling back to the
+ * Sink for Amazon DynamoDB. Partition key is `run_id`/`trace_id` (whichever is
+ * present on `record.meta`, `run_id` taking priority), falling back to the
  * logger name when neither is set, so every record always lands under some
  * partition even before `RunPlugin`/`TraceContextPlugin` are wired up. Sort
  * key is `timestamp`.
@@ -119,14 +119,18 @@ export class DynamoDBTransport extends BatchingTransport {
   }
 
   private async importClient(): Promise<DynamoClientLike> {
-    let DynamoDBClientCtor: new (config: { region?: string }) => { send(command: unknown): Promise<unknown> };
+    let DynamoDBClientCtor: new (config: { region?: string }) => {
+      send(command: unknown): Promise<unknown>;
+    };
     let BatchWriteItemCommandCtor: new (input: unknown) => unknown;
     try {
       // A non-literal specifier keeps this an optional peer dependency: `tsc`
       // won't try to resolve types for it, and bundlers won't force-include it.
       const moduleName = "@aws-sdk/client-dynamodb";
       const mod = (await import(moduleName)) as unknown as {
-        DynamoDBClient: new (config: { region?: string }) => { send(command: unknown): Promise<unknown> };
+        DynamoDBClient: new (config: { region?: string }) => {
+          send(command: unknown): Promise<unknown>;
+        };
         BatchWriteItemCommand: new (input: unknown) => unknown;
       };
       DynamoDBClientCtor = mod.DynamoDBClient;
@@ -149,13 +153,13 @@ export class DynamoDBTransport extends BatchingTransport {
     return this.client;
   }
 
-  /** `meta.runId`, else `meta.traceId`, else the logger name — see the class doc for why. */
+  /** `meta.run_id`, else `meta.trace_id`, else the logger name — see the class doc for why. */
   private partitionKey(record: LogRecord): string {
-    const runId = record.meta.runId;
+    const runId = record.meta.run_id;
     if (typeof runId === "string" && runId.length > 0) {
       return runId;
     }
-    const traceId = record.meta.traceId;
+    const traceId = record.meta.trace_id;
     if (typeof traceId === "string" && traceId.length > 0) {
       return traceId;
     }
@@ -163,19 +167,19 @@ export class DynamoDBTransport extends BatchingTransport {
   }
 
   private toDynamoItem(record: LogRecord): DynamoLogItem {
-    const spanId = record.meta.spanId;
-    const parentSpanId = record.meta.parentSpanId;
-    const traceId = record.meta.traceId;
+    const span_id = record.meta.span_id;
+    const parent_span_id = record.meta.parent_span_id;
+    const trace_id = record.meta.trace_id;
     return {
-      runId: this.partitionKey(record),
+      run_id: this.partitionKey(record),
       timestamp: record.timestamp,
       level: record.level,
       logger: record.logger,
       message: record.message,
       meta: record.meta,
-      ...(typeof spanId === "string" ? { spanId } : {}),
-      ...(typeof parentSpanId === "string" ? { parentSpanId } : {}),
-      ...(typeof traceId === "string" ? { traceId } : {}),
+      ...(typeof span_id === "string" ? { span_id } : {}),
+      ...(typeof parent_span_id === "string" ? { parent_span_id } : {}),
+      ...(typeof trace_id === "string" ? { trace_id } : {}),
     };
   }
 

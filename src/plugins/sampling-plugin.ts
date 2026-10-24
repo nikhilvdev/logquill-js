@@ -7,7 +7,7 @@ import type { Transport } from "../transports/transport.js";
 export interface SamplingPluginOptions {
   /** Source of randomness for the rate check. Defaults to `Math.random`; override with a seeded/fake generator for deterministic tests. */
   rng?: () => number;
-  /** `meta` key holding the trace/run id used to group buffered records. Default `"traceId"`. */
+  /** `meta` key holding the trace/run id used to group buffered records. Default `"trace_id"`. */
   traceKey?: string;
   /** A record at or above this level elevates its whole trace. Default `Level.ERROR`. */
   elevateAt?: LevelInput;
@@ -73,7 +73,7 @@ export class SamplingPlugin implements Plugin {
     }
     this.rate = rate;
     this.rng = options.rng ?? Math.random;
-    this.traceKey = options.traceKey ?? "traceId";
+    this.traceKey = options.traceKey ?? "trace_id";
     this.elevateAt = parseLevel(options.elevateAt ?? Level.ERROR);
     this.transports = options.transports;
     this.maxBufferedRecords = options.maxBufferedRecords ?? 1000;

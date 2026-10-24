@@ -38,8 +38,8 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9 });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    expect(logger.info("step 1", { traceId: "t1" })).toBeNull();
-    expect(logger.error("step 2", { traceId: "t1" })).toBeNull();
+    expect(logger.info("step 1", { trace_id: "t1" })).toBeNull();
+    expect(logger.error("step 2", { trace_id: "t1" })).toBeNull();
     expect(sink.records).toHaveLength(0);
   });
 
@@ -48,11 +48,11 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9, transports: [sink] });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    expect(logger.info("step 1", { traceId: "t1" })).toBeNull();
-    expect(logger.info("step 2", { traceId: "t1" })).toBeNull();
+    expect(logger.info("step 1", { trace_id: "t1" })).toBeNull();
+    expect(logger.info("step 2", { trace_id: "t1" })).toBeNull();
     expect(sink.records).toHaveLength(0);
 
-    const record = logger.error("step 3", { traceId: "t1" });
+    const record = logger.error("step 3", { trace_id: "t1" });
     await logger.flush();
 
     expect(record).not.toBeNull();
@@ -64,9 +64,9 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9, transports: [sink] });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    expect(logger.info("other trace", { traceId: "t2" })).toBeNull();
-    expect(logger.info("step 1", { traceId: "t1" })).toBeNull();
-    logger.error("step 2", { traceId: "t1" });
+    expect(logger.info("other trace", { trace_id: "t2" })).toBeNull();
+    expect(logger.info("step 1", { trace_id: "t1" })).toBeNull();
+    logger.error("step 2", { trace_id: "t1" });
     await logger.flush();
 
     const messages = sink.records.map((r) => r.message);
@@ -79,8 +79,8 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9, transports: [sink] });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    logger.error("triggers elevation", { traceId: "t1" });
-    const record = logger.info("after elevation", { traceId: "t1" });
+    logger.error("triggers elevation", { trace_id: "t1" });
+    const record = logger.info("after elevation", { trace_id: "t1" });
     await logger.flush();
 
     expect(record).not.toBeNull();
@@ -92,9 +92,9 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9, transports: [sink], maxTraces: 1 });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    logger.info("trace one", { traceId: "t1" });
-    logger.info("trace two", { traceId: "t2" }); // evicts t1's buffer (maxTraces: 1)
-    logger.error("elevates t1", { traceId: "t1" });
+    logger.info("trace one", { trace_id: "t1" });
+    logger.info("trace two", { trace_id: "t2" }); // evicts t1's buffer (maxTraces: 1)
+    logger.error("elevates t1", { trace_id: "t1" });
     await logger.flush();
 
     // t1's earlier buffered record was evicted, so only the elevating record ships
@@ -108,11 +108,11 @@ describe("SamplingPlugin", () => {
     const sampling = new SamplingPlugin(0, { rng: () => 0.9, transports: [sink], maxBufferedRecords: 1 });
     const logger = new Logger("app.test", { transports: [sink], plugins: [sampling] });
 
-    logger.info("trace one, record one", { traceId: "t1" });
+    logger.info("trace one, record one", { trace_id: "t1" });
     // second buffered record (still t1) exceeds maxBufferedRecords: 1,
     // evicting the whole oldest trace's buffer (t1's first record)
-    logger.info("trace one, record two", { traceId: "t1" });
-    logger.error("elevates t1", { traceId: "t1" });
+    logger.info("trace one, record two", { trace_id: "t1" });
+    logger.error("elevates t1", { trace_id: "t1" });
     await logger.flush();
 
     const messages = sink.records.map((r) => r.message);

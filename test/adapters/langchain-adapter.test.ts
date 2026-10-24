@@ -30,27 +30,27 @@ describe("LangChainAdapter", () => {
 
     const [llmStart, llmEnd, toolStart, toolEnd, finish, chainClose] = sink.records;
 
-    expect(llmStart?.meta.spanId).toBe("llm-1");
-    expect(llmStart?.meta.parentSpanId).toBe("chain-1");
-    expect(llmEnd?.meta.spanId).toBe("llm-1");
-    expect(typeof llmEnd?.meta.durationMs).toBe("number");
+    expect(llmStart?.meta.span_id).toBe("llm-1");
+    expect(llmStart?.meta.parent_span_id).toBe("chain-1");
+    expect(llmEnd?.meta.span_id).toBe("llm-1");
+    expect(typeof llmEnd?.meta.duration_ms).toBe("number");
 
-    expect(toolStart?.meta.spanId).toBe("tool-1");
-    expect(toolStart?.meta.parentSpanId).toBe("chain-1");
-    expect(typeof toolEnd?.meta.durationMs).toBe("number");
+    expect(toolStart?.meta.span_id).toBe("tool-1");
+    expect(toolStart?.meta.parent_span_id).toBe("chain-1");
+    expect(typeof toolEnd?.meta.duration_ms).toBe("number");
 
     // handleAgentEnd shares the chain's own runId rather than minting a
     // fresh one, so it's linked via parentSpanId, not given a spanId of its own.
-    expect(finish?.meta.spanId).toBeUndefined();
-    expect(finish?.meta.parentSpanId).toBe("chain-1");
+    expect(finish?.meta.span_id).toBeUndefined();
+    expect(finish?.meta.parent_span_id).toBe("chain-1");
 
-    expect(chainClose?.meta.spanId).toBe("chain-1");
-    expect(chainClose?.meta.parentSpanId).toBeUndefined();
-    expect(typeof chainClose?.meta.durationMs).toBe("number");
+    expect(chainClose?.meta.span_id).toBe("chain-1");
+    expect(chainClose?.meta.parent_span_id).toBeUndefined();
+    expect(typeof chainClose?.meta.duration_ms).toBe("number");
     expect(chainClose?.message).toBe("agent_chain");
 
     // every record shares the runId RunPlugin attached to the logger
-    expect(new Set(sink.records.map((r) => r.meta.runId))).toEqual(new Set(["run-1"]));
+    expect(new Set(sink.records.map((r) => r.meta.run_id))).toEqual(new Set(["run-1"]));
   });
 
   it("nested chains link via parentSpanId", async () => {
@@ -68,10 +68,10 @@ describe("LangChainAdapter", () => {
     await logger.flush();
 
     const [innerClose, outerClose] = sink.records;
-    expect(innerClose?.meta.spanId).toBe("inner-1");
-    expect(innerClose?.meta.parentSpanId).toBe("outer-1");
-    expect(outerClose?.meta.spanId).toBe("outer-1");
-    expect(outerClose?.meta.parentSpanId).toBeUndefined();
+    expect(innerClose?.meta.span_id).toBe("inner-1");
+    expect(innerClose?.meta.parent_span_id).toBe("outer-1");
+    expect(outerClose?.meta.span_id).toBe("outer-1");
+    expect(outerClose?.meta.parent_span_id).toBeUndefined();
   });
 
   it("a chain error closes the span at ERROR level", async () => {
@@ -103,7 +103,7 @@ describe("LangChainAdapter", () => {
     const errorRecord = sink.records[1];
     expect(errorRecord?.level).toBe("ERROR");
     expect(errorRecord?.meta.error).toBe("Error: tool broke");
-    expect(errorRecord?.meta.spanId).toBe("tool-1");
+    expect(errorRecord?.meta.span_id).toBe("tool-1");
   });
 
   it("a non-Error throw (a tool's _call can legally throw anything) doesn't corrupt or crash", async () => {
@@ -174,6 +174,6 @@ describe("LangChainAdapter", () => {
     expect(sink.records).toHaveLength(1);
     expect(sink.records[0]?.message).toBe("calculator");
     expect(sink.records[0]?.meta.kind).toBe("action");
-    expect(sink.records[0]?.meta.parentSpanId).toBe("chain-1");
+    expect(sink.records[0]?.meta.parent_span_id).toBe("chain-1");
   });
 });

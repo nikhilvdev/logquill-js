@@ -9,12 +9,12 @@ export interface RunPluginOptions {
 }
 
 /**
- * Stamps `meta.runId` — a stable id grouping every record from one agent
+ * Stamps `meta.run_id` — a stable id grouping every record from one agent
  * run — plus an incrementing `meta.step` counter, one per record processed
  * through this plugin instance.
  *
- * Distinct from `TraceContextPlugin`'s `traceId`: `runId` scopes one agent
- * run, `traceId` follows one request across services. A run can span
+ * Distinct from `TraceContextPlugin`'s `trace_id`: `run_id` scopes one agent
+ * run, `trace_id` follows one request across services. A run can span
  * multiple traces (e.g. an agent that calls several downstream services);
  * the two ids are independent.
  *
@@ -23,12 +23,12 @@ export interface RunPluginOptions {
  * singleton shared across runs — otherwise concurrent runs would share both
  * the run id and the step counter.
  *
- * A record that already carries `meta.runId` (e.g. propagated from an
+ * A record that already carries `meta.run_id` (e.g. propagated from an
  * upstream call) keeps its existing value; `meta.step` is always set from
  * this instance's own counter.
  */
 export class RunPlugin implements Plugin {
-  /** Id stamped onto `meta.runId` for every record this instance processes. */
+  /** Id stamped onto `meta.run_id` for every record this instance processes. */
   readonly runId: string;
   private step = 0;
 
@@ -37,7 +37,7 @@ export class RunPlugin implements Plugin {
   }
 
   beforeLog(record: LogRecord): LogRecord {
-    record.meta.runId ??= this.runId;
+    record.meta.run_id ??= this.runId;
     record.meta.step = this.step++;
     return record;
   }

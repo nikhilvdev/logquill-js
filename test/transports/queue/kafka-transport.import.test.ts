@@ -31,7 +31,7 @@ describe("KafkaTransport (auto-imported `kafkajs` driver)", () => {
     const transport = new KafkaTransport({ topic: "my-topic", brokers: ["broker-1:9092"] });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("hello", { runId: "run-1" });
+    logger.info("hello", { run_id: "run-1" });
     await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));

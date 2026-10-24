@@ -30,7 +30,7 @@ describe("OtelSpanProcessor", () => {
     expect(transport.records[0]?.meta.kind).toBe("action");
     expect(transport.records[1]?.message).toBe("callLlm");
     expect(transport.records[1]?.meta.kind).toBe("observation");
-    expect(typeof transport.records[1]?.meta.durationMs).toBe("number");
+    expect(typeof transport.records[1]?.meta.duration_ms).toBe("number");
   });
 
   it("carries the span's own spanId onto both records", async () => {
@@ -46,8 +46,8 @@ describe("OtelSpanProcessor", () => {
     });
     await logger.flush();
 
-    expect(transport.records[0]?.meta.spanId).toBe(spanId);
-    expect(transport.records[1]?.meta.spanId).toBe(spanId);
+    expect(transport.records[0]?.meta.span_id).toBe(spanId);
+    expect(transport.records[1]?.meta.span_id).toBe(spanId);
   });
 
   it("stamps parentSpanId from an explicitly nested span", async () => {
@@ -71,13 +71,13 @@ describe("OtelSpanProcessor", () => {
     const childStart = transport.records.find(
       (r) => r.message === "child" && r.meta.kind === "action",
     );
-    expect(childStart?.meta.spanId).toBe(childId);
-    expect(childStart?.meta.parentSpanId).toBe(parentId);
+    expect(childStart?.meta.span_id).toBe(childId);
+    expect(childStart?.meta.parent_span_id).toBe(parentId);
 
     const parentStart = transport.records.find(
       (r) => r.message === "parent" && r.meta.kind === "action",
     );
-    expect(parentStart?.meta.parentSpanId).toBeUndefined();
+    expect(parentStart?.meta.parent_span_id).toBeUndefined();
   });
 
   it("emits .error() instead of .observation() when the span ends with an error status", async () => {

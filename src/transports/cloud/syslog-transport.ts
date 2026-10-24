@@ -12,6 +12,9 @@ export type SyslogSender = (data: Buffer) => void;
 const FACILITY_USER = 1;
 const NIL = "-";
 
+// TCP writes queue in memory while the server is slow or unreachable; past this, new messages are dropped.
+const MAX_PENDING_TCP_BYTES = 1024 * 1024;
+
 // LogQuill has no equivalent of syslog's alert/emergency severities.
 const SEVERITY: Readonly<Record<Level, number>> = {
   [Level.TRACE]: 7,
@@ -45,14 +48,21 @@ export interface SyslogTransportOptions {
  * Node's `dgram`/`net` — no dependency. Not batched: syslog is one message
  * per datagram. TCP messages are newline-framed (RFC 6587 non-transparent
  * framing); a UDP datagram needs no framing. Delivery is fire-and-forget, so
- * a down server never blocks or throws into the caller; a failed TCP
- * connection is dropped and re-opened on the next record.
+ * a down server never blocks or throws into the caller; a failed or closed TCP
+ * connection is re-opened on the next record, and while a server is slow or
+ * unreachable at most 1 MiB is queued before new messages are dropped. Sockets
+ * are unref'd, so they never keep the process alive.
  */
 export class SyslogTransport extends Transport {
+  /** Syslog server host. */
   readonly host: string;
+  /** Syslog server port. */
   readonly port: number;
+  /** `"udp"` or `"tcp"`. */
   readonly protocol: "udp" | "tcp";
+  /** Syslog facility code. */
   readonly facility: number;
+  /** RFC 5424 APP-NAME, or `undefined` to use each record's logger name. */
   readonly appName: string | undefined;
   private readonly hostName = hostname();
   private readonly injected: SyslogSender | undefined;
@@ -96,15 +106,27 @@ export class SyslogTransport extends Transport {
   private send(data: Buffer): void {
     if (this.protocol === "udp") {
       // The send callback swallows errors: UDP delivery is best effort.
-      this.udp ??= createSocket("udp4").on("error", () => {
-        this.udp = undefined;
-      });
+      if (!this.udp) {
+        const socket = createSocket("udp4");
+        // unref: an open socket must not keep the process alive after the app is done.
+        socket.unref().on("error", () => {
+          if (this.udp === socket) this.udp = undefined;
+        });
+        this.udp = socket;
+      }
       this.udp.send(data, this.port, this.host, () => undefined);
       return;
     }
-    this.tcp ??= connect(this.port, this.host).on("error", () => {
-      this.tcp = undefined;
-    });
+    if (!this.tcp) {
+      const socket = connect(this.port, this.host);
+      const forget = (): void => {
+        if (this.tcp === socket) this.tcp = undefined;
+      };
+      // A closed or failed connection is replaced on the next record.
+      socket.unref().on("error", forget).on("close", forget);
+      this.tcp = socket;
+    }
+    if (this.tcp.writableLength + data.length > MAX_PENDING_TCP_BYTES) return;
     this.tcp.write(data);
   }
 }

@@ -45,7 +45,7 @@ describe("SQLiteTransport", () => {
     const transport = new SQLiteTransport({ client, maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("only one", { runId: "run-1", spanId: "span-1" });
+    logger.info("only one", { run_id: "run-1", span_id: "span-1" });
     await logger.flush();
     transport.close();
 
@@ -55,7 +55,7 @@ describe("SQLiteTransport", () => {
     expect(level).toBe("INFO");
     expect(loggerName).toBe("app.test");
     expect(message).toBe("only one");
-    expect(JSON.parse(meta)).toEqual({ runId: "run-1", spanId: "span-1" });
+    expect(JSON.parse(meta)).toEqual({ run_id: "run-1", span_id: "span-1" });
     expect(runId).toBe("run-1");
     expect(spanId).toBe("span-1");
     expect(parentSpanId).toBeNull();

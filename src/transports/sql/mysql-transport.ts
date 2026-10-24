@@ -1,4 +1,8 @@
-import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "./base-sql-transport.js";
+import {
+  BaseSQLTransport,
+  type BaseSQLTransportOptions,
+  type SQLLogRow,
+} from "./base-sql-transport.js";
 
 /** The subset of a `mysql2/promise` connection/pool that `MySQLTransport` needs. Inject a fake in tests. */
 export interface MySQLClientLike {
@@ -77,10 +81,10 @@ export class MySQLTransport extends BaseSQLTransport {
   logger VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
   meta JSON NOT NULL,
-  runId VARCHAR(255),
-  spanId VARCHAR(255),
-  parentSpanId VARCHAR(255),
-  traceId VARCHAR(255)
+  run_id VARCHAR(255),
+  span_id VARCHAR(255),
+  parent_span_id VARCHAR(255),
+  trace_id VARCHAR(255)
 )`;
   }
 
@@ -102,14 +106,14 @@ export class MySQLTransport extends BaseSQLTransport {
         row.logger,
         row.message,
         row.meta,
-        row.runId,
-        row.spanId,
-        row.parentSpanId,
-        row.traceId,
+        row.run_id,
+        row.span_id,
+        row.parent_span_id,
+        row.trace_id,
       );
     }
 
-    const sql = `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, runId, spanId, parentSpanId, traceId) VALUES ${placeholders.join(", ")}`;
+    const sql = `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, run_id, span_id, parent_span_id, trace_id) VALUES ${placeholders.join(", ")}`;
     await client.execute(sql, values);
   }
 }

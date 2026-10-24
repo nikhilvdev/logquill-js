@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nikhilvdev/logquill-python/main/schema/record.schema.json",
+  "title": "LogQuill record",
+  "description": "One log record, as written by logquill (Python) and logquill-js. `meta` is free-form except for the named fields below, which both packages agree on. Records written by logquill 1.x have no `schema_version` and are not valid against this schema; read them with parse_record (Python), which labels them '1.0'.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "level",
+    "logger",
+    "message",
+    "meta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2.0",
+      "description": "The record shape this schema describes."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+      "description": "ISO 8601, e.g. 2026-01-01T00:00:00.000Z."
+    },
+    "level": {
+      "enum": [
+        "TRACE",
+        "DEBUG",
+        "INFO",
+        "WARN",
+        "ERROR",
+        "FATAL"
+      ]
+    },
+    "logger": {
+      "type": "string",
+      "description": "Dotted logger name."
+    },
+    "message": {
+      "type": "string"
+    },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "llm": {
+      "$ref": "#/$defs/llm"
+    }
+  },
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "description": "Free-form key/values. The keys named here have fixed meanings and types.",
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "thought | action | observation | decision; free-form otherwise (e.g. span, checkpoint)."
+        },
+        "run_id": {
+          "type": "string",
+          "description": "Groups one agent run."
+        },
+        "span_id": {
+          "type": "string"
+        },
+        "parent_span_id": {
+          "type": "string"
+        },
+        "trace_id": {
+          "type": "string",
+          "description": "Follows a request across services; distinct from run_id."
+        },
+        "thread_id": {
+          "type": "string",
+          "description": "A resumable conversation spanning several run_ids."
+        },
+        "node_name": {
+          "type": "string",
+          "description": "The graph node that produced the record."
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Set on span close."
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many times this tool call has been retried."
+        },
+        "state_diff": {
+          "type": "object",
+          "description": "State captured before and after a span, governed by Logger(content_policy=...) the same as input_messages."
+        },
+        "mcp": {
+          "$ref": "#/$defs/mcp"
+        },
+        "stack": {
+          "type": "string",
+          "description": "Formatted traceback."
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 hex digest over this record's content plus prev_hash."
+        },
+        "prev_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "The previous record's hash in a TamperEvidentPlugin chain."
+        },
+        "tool": {
+          "type": "string",
+          "description": "Name of the tool an action called."
+        },
+        "tool_call_id": {
+          "type": "string",
+          "description": "Identifies one tool call across its retries."
+        },
+        "provider": {
+          "type": "string",
+          "description": "The LLM provider, e.g. openai, anthropic."
+        },
+        "agent_name": {
+          "type": "string",
+          "description": "Human-readable name of the agent."
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "chat",
+            "text_completion",
+            "invoke_agent"
+          ],
+          "description": "Overrides the operation inferred for OpenTelemetry export."
+        },
+        "response_model": {
+          "type": "string",
+          "description": "The model that actually answered, if it differs from llm.model."
+        },
+        "input_messages": {
+          "type": "array",
+          "description": "Prompt content governed by Logger(content_policy=...) — off by default; only exported to OpenTelemetry when OTLPTransport's capture_content is on."
+        },
+        "output_messages": {
+          "type": "array",
+          "description": "Completion content, governed the same way as input_messages."
+        },
+        "tool_arguments": {
+          "description": "A tool call's arguments — any JSON value, governed by Logger(content_policy=...) the same as input_messages."
+        },
+        "tool_result": {
+          "description": "A tool call's result — any JSON value, governed by Logger(content_policy=...) the same as input_messages."
+        }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "description": "Model Context Protocol fields.",
+      "additionalProperties": true,
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string",
+          "description": "Informational: which client-side agent run triggered this MCP request. Never overrides this process's own run_id."
+        }
+      }
+    },
+    "llm": {
+      "type": "object",
+      "description": "An LLM call. Present only on LLM-call records; every field is optional.",
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "tokens_in": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_out": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "latency_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "finish_reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

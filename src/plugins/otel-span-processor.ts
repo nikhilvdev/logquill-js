@@ -66,10 +66,10 @@ export interface OtelSpanProcessorOptions {
  * Every span the SDK creates becomes one `.action()` call on start and one
  * `.observation()` (or `.error()`, if the span ended with an error status)
  * call on end — the same two-call shape `LangChainAdapter` uses for
- * `handleToolStart`/`handleToolEnd`. Both carry the span's own `spanId`/
- * `parentSpanId` — OTel span ids are already the same 16-hex-char shape
- * LogQuill's own `spanId` uses, so no translation is needed — and the end
- * call additionally carries `meta.durationMs`. Non-empty span attributes are
+ * `handleToolStart`/`handleToolEnd`. Both carry the span's own `span_id`/
+ * `parent_span_id` — OTel span ids are already the same 16-hex-char shape
+ * LogQuill's own `span_id` uses, so no translation is needed — and the end
+ * call additionally carries `meta.duration_ms`. Non-empty span attributes are
  * copied onto `meta[attributesKey]` verbatim, unrenamed — mapping onto the
  * OTel `gen_ai.*` semantic conventions is deliberately out of scope here
  * (see the v2.0 `OTLPTransport`/`gen_ai.*` plan).
@@ -97,7 +97,7 @@ export class OtelSpanProcessor {
   onEnd(span: OtelSpanLike): void {
     const meta = {
       ...this.baseMeta(span),
-      durationMs: span.duration[0] * 1000 + span.duration[1] / 1e6,
+      duration_ms: span.duration[0] * 1000 + span.duration[1] / 1e6,
     };
     if (span.status.code === OTEL_STATUS_CODE_ERROR) {
       this.log.error(span.name, {
@@ -116,10 +116,10 @@ export class OtelSpanProcessor {
   async shutdown(): Promise<void> {}
 
   private baseMeta(span: OtelSpanLike): Record<string, unknown> {
-    const meta: Record<string, unknown> = { spanId: span.spanContext().spanId };
+    const meta: Record<string, unknown> = { span_id: span.spanContext().spanId };
     const parentSpanId = span.parentSpanContext?.spanId ?? span.parentSpanId;
     if (parentSpanId) {
-      meta.parentSpanId = parentSpanId;
+      meta.parent_span_id = parentSpanId;
     }
     if (Object.keys(span.attributes).length > 0) {
       meta[this.attributesKey] = span.attributes;

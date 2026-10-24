@@ -28,7 +28,7 @@ describe("DynamoDBTransport (auto-imported `@aws-sdk/client-dynamodb` driver)", 
     const transport = new DynamoDBTransport({ tableName: "my-table", region: "us-west-2" });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("hello", { runId: "run-1" });
+    logger.info("hello", { run_id: "run-1" });
     await logger.flush();
     transport.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -45,7 +45,7 @@ describe("DynamoDBTransport (auto-imported `@aws-sdk/client-dynamodb` driver)", 
     const logger = new Logger("app.test2", { transports: [transport] });
 
     logger.info("hello", {
-      runId: "run-2",
+      run_id: "run-2",
       aNull: null,
       aNumber: 42,
       aBool: true,

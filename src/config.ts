@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname, dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { JSONFormatter, type Formatter } from "./core/formatter.js";
 import { LogfmtFormatter } from "./core/logfmt-formatter.js";
 import type { BackpressurePolicy, DispatchQueueOptions } from "./core/dispatch-queue.js";
@@ -23,7 +24,7 @@ import type { Transport } from "./transports/transport.js";
 export interface ConfigEntry {
   /** A built-in shortcut. Transports: `console`, `file`, `http`, `syslog`. Plugins: `context`, `redact`, `sampling`, `trace_context`, `run`, `pii_redact`, `tamper_evident`. */
   type?: string;
-  /** `"<module>#<ExportName>"`, e.g. `"logquill#DatadogTransport"`, for anything not built in. The class is constructed with `options` as its single argument. */
+  /** `"<module>#<ExportName>"`, e.g. `"logquill#DatadogTransport"` or `"./my-transport.js#MyTransport"` (relative to the config file), for anything not built in. The class is constructed with `options` as its single argument. */
   class?: string;
   /** Constructor options; snake_case keys are accepted and converted to camelCase. */
   options?: Record<string, unknown>;
@@ -31,9 +32,13 @@ export interface ConfigEntry {
 
 /** The config shape `loadConfig`/`loggerFromFile` read — the same one `logquill-python` reads. */
 export interface LoggerConfig {
+  /** Logger name. Defaults to the name passed to the loader (`"app"`). */
   name?: string;
+  /** Minimum level, e.g. `"INFO"`. Default `"INFO"`. */
   level?: string;
+  /** Transports to build, in order. */
   transports?: ConfigEntry[];
+  /** Plugins to build, in order. */
   plugins?: ConfigEntry[];
   /** Max pending records in the dispatch queue (`max_queue_size` also accepted). */
   maxQueueSize?: number;
@@ -105,6 +110,7 @@ async function build<T>(
   entries: ConfigEntry[] | undefined,
   registry: Record<string, (o: Options) => T>,
   kind: string,
+  baseDir: string,
 ): Promise<T[]> {
   const built: T[] = [];
   for (const entry of entries ?? []) {
@@ -118,7 +124,11 @@ async function build<T>(
           `'class' must look like "<module>#<ExportName>" (e.g. "logquill#DatadogTransport"), got ${JSON.stringify(entry.class)}`,
         );
       }
-      const mod = (await import(moduleName)) as Record<string, unknown>;
+      // A relative path means "relative to the config", not to this library's own files.
+      const specifier = moduleName.startsWith(".")
+        ? pathToFileURL(resolve(baseDir, moduleName)).href
+        : moduleName;
+      const mod = (await import(specifier)) as Record<string, unknown>;
       const Ctor = mod[exportName] as (new (options: Options) => T) | undefined;
       if (typeof Ctor !== "function") {
         throw new Error(
@@ -156,14 +166,16 @@ async function build<T>(
  *       "max_queue_size": 10000, "backpressure": "drop_oldest"
  *     }
  *
- * `class` entries import and construct arbitrary code, so only load config you
- * trust, as with any deployment config. Python's `async_dispatch` and
+ * `class` entries import and construct arbitrary code (a `./relative` module is
+ * resolved against `baseDir`, which `loggerFromFile` sets to the config file's
+ * directory), so only load config you trust, as with any deployment config. Python's `async_dispatch` and
  * `flush_at_exit` keys are ignored: dispatch here is always async, and
  * shutdown flushing is opt-in via `installShutdownHandlers(logger)`.
  */
 export async function loadConfig(
   data: Record<string, unknown>,
   defaultName = "app",
+  baseDir = process.cwd(),
 ): Promise<Logger> {
   const config = camelizeKeys(data) as LoggerConfig;
   const queue: DispatchQueueOptions = {
@@ -174,8 +186,8 @@ export async function loadConfig(
   };
   return new Logger(config.name ?? defaultName, {
     level: config.level ?? "INFO",
-    transports: await build(config.transports, TRANSPORT_TYPES, "transport"),
-    plugins: await build(config.plugins, PLUGIN_TYPES, "plugin"),
+    transports: await build(config.transports, TRANSPORT_TYPES, "transport", baseDir),
+    plugins: await build(config.plugins, PLUGIN_TYPES, "plugin", baseDir),
     queue,
   });
 }
@@ -205,7 +217,7 @@ export async function loggerFromFile(path: string, name = "app"): Promise<Logger
       `${path}: config must be an object with keys like level, transports and plugins`,
     );
   }
-  return loadConfig(data as Record<string, unknown>, name);
+  return loadConfig(data as Record<string, unknown>, name, dirname(path));
 }
 
 /**

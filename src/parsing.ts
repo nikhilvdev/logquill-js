@@ -16,6 +16,7 @@ export const TEXT_LOG_CASTS: Record<string, (text: string) => unknown> = {
   meta: (text) => JSON.parse(text) as unknown,
 };
 
+/** Options for {@link parse}. */
 export interface ParseOptions {
   /** Maps a named group to a function applied to that group's text, e.g. `{ status: Number }`. A group that didn't match is left `undefined`. */
   cast?: Record<string, (text: string) => unknown>;

@@ -33,9 +33,9 @@ describe("Logger.span()", () => {
 
     expect(sink.records).toHaveLength(1);
     const record = sink.records[0];
-    expect(typeof record?.meta.spanId).toBe("string");
-    expect(record?.meta.spanId).toBeTruthy();
-    expect(typeof record?.meta.durationMs).toBe("number");
+    expect(typeof record?.meta.span_id).toBe("string");
+    expect(record?.meta.span_id).toBeTruthy();
+    expect(typeof record?.meta.duration_ms).toBe("number");
   });
 
   it("has no parentSpanId and kind 'span' at the top level", async () => {
@@ -46,7 +46,7 @@ describe("Logger.span()", () => {
     await logger.flush();
 
     const record = sink.records[0];
-    expect(record?.meta.parentSpanId).toBeUndefined();
+    expect(record?.meta.parent_span_id).toBeUndefined();
     expect(record?.meta.kind).toBe("span");
   });
 
@@ -67,7 +67,7 @@ describe("Logger.span()", () => {
 
     const [actionRecord, spanRecord] = sink.records;
     expect(actionRecord?.message).toBe("call tool");
-    expect(actionRecord?.meta.parentSpanId).toBe(spanRecord?.meta.spanId);
+    expect(actionRecord?.meta.parent_span_id).toBe(spanRecord?.meta.span_id);
   });
 
   it("stamps records across an internal await with parentSpanId", async () => {
@@ -81,7 +81,7 @@ describe("Logger.span()", () => {
     await logger.flush();
 
     const [actionRecord, spanRecord] = sink.records;
-    expect(actionRecord?.meta.parentSpanId).toBe(spanRecord?.meta.spanId);
+    expect(actionRecord?.meta.parent_span_id).toBe(spanRecord?.meta.span_id);
   });
 
   it("nested spans form a parent chain", async () => {
@@ -96,9 +96,9 @@ describe("Logger.span()", () => {
     await logger.flush();
 
     const [leaf, innerRecord, outerRecord] = sink.records;
-    expect(leaf?.meta.parentSpanId).toBe(innerRecord?.meta.spanId);
-    expect(innerRecord?.meta.parentSpanId).toBe(outerRecord?.meta.spanId);
-    expect(outerRecord?.meta.parentSpanId).toBeUndefined();
+    expect(leaf?.meta.parent_span_id).toBe(innerRecord?.meta.span_id);
+    expect(innerRecord?.meta.parent_span_id).toBe(outerRecord?.meta.span_id);
+    expect(outerRecord?.meta.parent_span_id).toBeUndefined();
   });
 
   it("still emits its record and rethrows on exception", async () => {
@@ -126,8 +126,8 @@ describe("Logger.span()", () => {
     await logger.flush();
 
     const record = sink.records[0];
-    expect(record?.meta.spanId).toBe("abc123");
-    expect(record?.meta.parentSpanId).toBe("parent456");
+    expect(record?.meta.span_id).toBe("abc123");
+    expect(record?.meta.parent_span_id).toBe("parent456");
   });
 
   it("extra options become meta", async () => {
@@ -161,7 +161,7 @@ describe("Logger.span()", () => {
     const insideFirst = sink.records.find((r) => r.message === "inside first");
     const insideSecond = sink.records.find((r) => r.message === "inside second");
 
-    expect(insideFirst?.meta.parentSpanId).toBe(firstSpanRecord?.meta.spanId);
-    expect(insideSecond?.meta.parentSpanId).toBe(secondSpanRecord?.meta.spanId);
+    expect(insideFirst?.meta.parent_span_id).toBe(firstSpanRecord?.meta.span_id);
+    expect(insideSecond?.meta.parent_span_id).toBe(secondSpanRecord?.meta.span_id);
   });
 });

@@ -13,14 +13,14 @@ export interface SQLLogRow {
   message: string;
   /** `record.meta`, JSON-serialized — every SQL dialect can store this as TEXT/JSON/JSONB. */
   meta: string;
-  /** `record.meta.runId`, if present. */
-  runId: string | null;
-  /** `record.meta.spanId`, if present. */
-  spanId: string | null;
-  /** `record.meta.parentSpanId`, if present. */
-  parentSpanId: string | null;
-  /** `record.meta.traceId`, if present. */
-  traceId: string | null;
+  /** `record.meta.run_id`, if present. */
+  run_id: string | null;
+  /** `record.meta.span_id`, if present. */
+  span_id: string | null;
+  /** `record.meta.parent_span_id`, if present. */
+  parent_span_id: string | null;
+  /** `record.meta.trace_id`, if present. */
+  trace_id: string | null;
 }
 
 /** Options for {@link BaseSQLTransport} and every concrete SQL transport that extends it. */
@@ -67,10 +67,10 @@ export abstract class BaseSQLTransport extends BatchingTransport<SQLLogRow> {
       logger: record.logger,
       message: record.message,
       meta: JSON.stringify(record.meta),
-      runId: metaString(record.meta, "runId"),
-      spanId: metaString(record.meta, "spanId"),
-      parentSpanId: metaString(record.meta, "parentSpanId"),
-      traceId: metaString(record.meta, "traceId"),
+      run_id: metaString(record.meta, "run_id"),
+      span_id: metaString(record.meta, "span_id"),
+      parent_span_id: metaString(record.meta, "parent_span_id"),
+      trace_id: metaString(record.meta, "trace_id"),
     };
   }
 
@@ -92,10 +92,10 @@ export abstract class BaseSQLTransport extends BatchingTransport<SQLLogRow> {
   logger TEXT NOT NULL,
   message TEXT NOT NULL,
   meta TEXT NOT NULL,
-  runId TEXT,
-  spanId TEXT,
-  parentSpanId TEXT,
-  traceId TEXT
+  run_id TEXT,
+  span_id TEXT,
+  parent_span_id TEXT,
+  trace_id TEXT
 )`;
   }
 

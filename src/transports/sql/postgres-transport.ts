@@ -1,4 +1,8 @@
-import { BaseSQLTransport, type BaseSQLTransportOptions, type SQLLogRow } from "./base-sql-transport.js";
+import {
+  BaseSQLTransport,
+  type BaseSQLTransportOptions,
+  type SQLLogRow,
+} from "./base-sql-transport.js";
 
 /** The subset of a `pg` `Pool`/`Client` that `PostgresTransport` needs. Inject a fake in tests. */
 export interface PgClientLike {
@@ -78,10 +82,10 @@ export class PostgresTransport extends BaseSQLTransport {
   logger TEXT NOT NULL,
   message TEXT NOT NULL,
   meta JSONB NOT NULL,
-  "runId" TEXT,
-  "spanId" TEXT,
-  "parentSpanId" TEXT,
-  "traceId" TEXT
+  run_id TEXT,
+  span_id TEXT,
+  parent_span_id TEXT,
+  trace_id TEXT
 )`;
   }
 
@@ -106,14 +110,14 @@ export class PostgresTransport extends BaseSQLTransport {
         row.logger,
         row.message,
         row.meta,
-        row.runId,
-        row.spanId,
-        row.parentSpanId,
-        row.traceId,
+        row.run_id,
+        row.span_id,
+        row.parent_span_id,
+        row.trace_id,
       );
     });
 
-    const sql = `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, "runId", "spanId", "parentSpanId", "traceId") VALUES ${placeholders.join(", ")}`;
+    const sql = `INSERT INTO ${this.tableName} (timestamp, level, logger, message, meta, run_id, span_id, parent_span_id, trace_id) VALUES ${placeholders.join(", ")}`;
     await client.query(sql, values);
   }
 }

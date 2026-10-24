@@ -1,0 +1,1219 @@
+{
+  "description": "Golden records shared by logquill-python and logquill-js. Both test suites load this file. `valid` records must validate against record.schema.json and survive a JSON round trip unchanged; `invalid` ones must not validate. `legacy` records must parse to exactly `parsed`; `rejected` ones must be refused by the record parser.",
+  "schema_version": "2.0",
+  "valid": [
+    {
+      "name": "minimal record with empty meta",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "free-form meta, nested and mixed types",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "user signed up",
+        "meta": {
+          "user_id": 42,
+          "plan": "pro",
+          "ok": true,
+          "note": null,
+          "ratio": 0.5,
+          "tags": [
+            "a",
+            "b"
+          ],
+          "http": {
+            "status": 201,
+            "headers": {
+              "x": "y"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "TRACE level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "TRACE",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "DEBUG level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "DEBUG",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "INFO level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "WARN level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "WARN",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "ERROR level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "ERROR",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "FATAL level",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "FATAL",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "error with a stack trace",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "ERROR",
+        "logger": "app.billing",
+        "message": "payment failed",
+        "meta": {
+          "stack": "Traceback (most recent call last):\n  File \"x\", line 1\nValueError: nope\n",
+          "order_id": 7
+        }
+      }
+    },
+    {
+      "name": "agent span with nesting",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "call_llm",
+        "meta": {
+          "kind": "span",
+          "run_id": "run-1",
+          "span_id": "00f067aa0ba902b7",
+          "parent_span_id": "b7ad6b7169203331",
+          "duration_ms": 812.5
+        }
+      }
+    },
+    {
+      "name": "agent step kinds",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "deciding",
+        "meta": {
+          "kind": "decision",
+          "run_id": "run-1"
+        }
+      }
+    },
+    {
+      "name": "graph node and thread",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "node:plan",
+        "meta": {
+          "kind": "span",
+          "thread_id": "conv-9",
+          "node_name": "plan",
+          "run_id": "run-2",
+          "duration_ms": 3
+        }
+      }
+    },
+    {
+      "name": "cross-service trace id",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "handling request",
+        "meta": {
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
+        }
+      }
+    },
+    {
+      "name": "full LLM call block",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "chat",
+        "meta": {
+          "kind": "action",
+          "run_id": "run-1"
+        },
+        "llm": {
+          "model": "example-model",
+          "tokens_in": 1200,
+          "tokens_out": 340,
+          "cost_usd": 0.0123,
+          "latency_ms": 2150.5,
+          "finish_reason": "stop"
+        }
+      }
+    },
+    {
+      "name": "partial LLM call block",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "chat",
+        "meta": {},
+        "llm": {
+          "model": "example-model"
+        }
+      }
+    },
+    {
+      "name": "zero-valued LLM numbers",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "chat",
+        "meta": {},
+        "llm": {
+          "tokens_in": 0,
+          "tokens_out": 0,
+          "cost_usd": 0,
+          "latency_ms": 0
+        }
+      }
+    },
+    {
+      "name": "retry count and state diff",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "call_tool",
+        "meta": {
+          "kind": "action",
+          "retry_count": 2,
+          "state_diff": {
+            "before": {
+              "items": 1
+            },
+            "after": {
+              "items": 2
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "MCP fields",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "tools/call",
+        "meta": {
+          "kind": "action",
+          "mcp": {
+            "server": "files",
+            "tool": "read_file"
+          }
+        }
+      }
+    },
+    {
+      "name": "tamper-evident hash chain fields",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "audited",
+        "meta": {
+          "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "non-ASCII text",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "héllo — 你好 🚀",
+        "meta": {
+          "名前": "值"
+        }
+      }
+    },
+    {
+      "name": "timestamp with a numeric offset and no fraction",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T09:00:00+09:00",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "tool call with id and retry",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "search",
+        "meta": {
+          "kind": "action",
+          "tool": "search",
+          "tool_call_id": "call_1",
+          "retry_count": 1,
+          "duration_ms": 120.5
+        }
+      }
+    },
+    {
+      "name": "LLM call with provider and response model",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "chat",
+        "meta": {
+          "kind": "action",
+          "provider": "openai",
+          "response_model": "example-model-2026",
+          "operation": "chat"
+        },
+        "llm": {
+          "model": "example-model",
+          "tokens_in": 10,
+          "tokens_out": 4,
+          "finish_reason": "stop"
+        }
+      }
+    },
+    {
+      "name": "agent run span with agent identity",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "run",
+        "meta": {
+          "kind": "span",
+          "run_id": "run-1",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 40,
+          "agent_name": "planner",
+          "agent_id": "agent-7",
+          "operation": "invoke_agent"
+        }
+      }
+    },
+    {
+      "name": "opt-in message content",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "chat",
+        "meta": {
+          "kind": "action",
+          "input_messages": [
+            {
+              "role": "user",
+              "parts": [
+                {
+                  "type": "text",
+                  "content": "hi"
+                }
+              ]
+            }
+          ],
+          "output_messages": []
+        },
+        "llm": {
+          "model": "m"
+        }
+      }
+    },
+    {
+      "name": "MCP fields with a client-side run_id",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "mcp.files",
+        "message": "handling search",
+        "meta": {
+          "mcp": {
+            "server": "files",
+            "tool": "search",
+            "run_id": "run-1"
+          }
+        }
+      }
+    },
+    {
+      "name": "tool call with arguments and result",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "search",
+        "meta": {
+          "kind": "action",
+          "tool": "search",
+          "tool_arguments": {
+            "q": "x"
+          },
+          "tool_result": {
+            "ok": true
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "missing schema_version",
+      "why": "every 2.x record carries schema_version",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "a 1.x schema_version",
+      "why": "this schema describes 2.0; 1.x records are read with the legacy path",
+      "record": {
+        "schema_version": "1.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "schema_version is not a string",
+      "why": "a string like '2.0'",
+      "record": {
+        "schema_version": 2,
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "missing timestamp",
+      "why": "timestamp is required",
+      "record": {
+        "schema_version": "2.0",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "missing meta",
+      "why": "meta is required on a 2.x record",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello"
+      }
+    },
+    {
+      "name": "lower-case level",
+      "why": "level names are upper case",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "info",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "numeric level",
+      "why": "level is the name, not the weight",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": 20,
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "unknown level name",
+      "why": "not one of TRACE DEBUG INFO WARN ERROR FATAL",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "CRITICAL",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "message is not a string",
+      "why": "message is a string",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": 42,
+        "meta": {}
+      }
+    },
+    {
+      "name": "timestamp is not ISO 8601",
+      "why": "timestamp must be ISO 8601",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "yesterday",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "timestamp is epoch milliseconds",
+      "why": "timestamp is a string",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": 1767225600000,
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "meta is an array",
+      "why": "meta is an object",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": []
+      }
+    },
+    {
+      "name": "unknown top-level key",
+      "why": "top level is closed; put extra fields in meta",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "extra": 1
+      }
+    },
+    {
+      "name": "llm at the top level is not an object",
+      "why": "llm is an object",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": "gpt"
+      }
+    },
+    {
+      "name": "llm with an unknown key",
+      "why": "llm is closed",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "model": "m",
+          "temperature": 0.2
+        }
+      }
+    },
+    {
+      "name": "llm tokens_in is negative",
+      "why": "token counts are >= 0",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "tokens_in": -1
+        }
+      }
+    },
+    {
+      "name": "llm tokens_out is a string",
+      "why": "token counts are integers",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "tokens_out": "12"
+        }
+      }
+    },
+    {
+      "name": "llm tokens_in is fractional",
+      "why": "token counts are integers",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "tokens_in": 1.5
+        }
+      }
+    },
+    {
+      "name": "llm cost_usd is a string",
+      "why": "cost_usd is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "cost_usd": "0.01"
+        }
+      }
+    },
+    {
+      "name": "llm latency_ms is negative",
+      "why": "latency is >= 0",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": {
+          "latency_ms": -5
+        }
+      }
+    },
+    {
+      "name": "retry_count is a string",
+      "why": "retry_count is an integer",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "retry_count": "2"
+        }
+      }
+    },
+    {
+      "name": "retry_count is negative",
+      "why": "retry_count is >= 0",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "retry_count": -1
+        }
+      }
+    },
+    {
+      "name": "retry_count is fractional",
+      "why": "retry_count is an integer",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "retry_count": 1.5
+        }
+      }
+    },
+    {
+      "name": "state_diff is a string",
+      "why": "state_diff is an object",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "state_diff": "changed"
+        }
+      }
+    },
+    {
+      "name": "mcp is a string",
+      "why": "mcp is an object",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "mcp": "files"
+        }
+      }
+    },
+    {
+      "name": "mcp.server is a number",
+      "why": "mcp.server is a string",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "mcp": {
+            "server": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "mcp.tool is a number",
+      "why": "mcp.tool is a string",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "mcp": {
+            "tool": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "duration_ms is a string",
+      "why": "duration_ms is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "duration_ms": "12"
+        }
+      }
+    },
+    {
+      "name": "duration_ms is negative",
+      "why": "duration_ms is >= 0",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "duration_ms": -1
+        }
+      }
+    },
+    {
+      "name": "span_id is a number",
+      "why": "ids are strings",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "span_id": 7
+        }
+      }
+    },
+    {
+      "name": "hash is not 64 hex characters",
+      "why": "hash is a SHA-256 hex digest",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "hash": "abc"
+        }
+      }
+    },
+    {
+      "name": "tool is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "tool": 7
+        }
+      },
+      "why": "tool is a string"
+    },
+    {
+      "name": "tool_call_id is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "tool_call_id": 7
+        }
+      },
+      "why": "tool_call_id is a string"
+    },
+    {
+      "name": "provider is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "provider": 1
+        }
+      },
+      "why": "provider is a string"
+    },
+    {
+      "name": "agent_name is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "agent_name": 1
+        }
+      },
+      "why": "agent_name is a string"
+    },
+    {
+      "name": "unknown operation",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "operation": "embed"
+        }
+      },
+      "why": "operation is chat, text_completion or invoke_agent"
+    },
+    {
+      "name": "input_messages is a string",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "x",
+        "meta": {
+          "input_messages": "hello"
+        }
+      },
+      "why": "input_messages is an array"
+    },
+    {
+      "name": "mcp.run_id is a number",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "a",
+        "message": "x",
+        "meta": {
+          "mcp": {
+            "run_id": 1
+          }
+        }
+      },
+      "why": "mcp.run_id is a string"
+    },
+    {
+      "name": "tool_arguments at the top level, not meta",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "search",
+        "meta": {},
+        "tool_arguments": {
+          "q": "x"
+        }
+      },
+      "why": "tool_arguments lives in meta, not the top level"
+    }
+  ],
+  "legacy": [
+    {
+      "name": "1.x record",
+      "parsed": {
+        "schema_version": "1.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      },
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "1.x agent span",
+      "parsed": {
+        "schema_version": "1.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "call_llm",
+        "meta": {
+          "kind": "span",
+          "run_id": "run-1",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 12.5
+        }
+      },
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app.agent",
+        "message": "call_llm",
+        "meta": {
+          "kind": "span",
+          "run_id": "run-1",
+          "span_id": "00f067aa0ba902b7",
+          "duration_ms": 12.5
+        }
+      }
+    },
+    {
+      "name": "record with no meta at all",
+      "parsed": {
+        "schema_version": "1.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "WARN",
+        "logger": "app",
+        "message": "no meta at all",
+        "meta": {}
+      },
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "WARN",
+        "logger": "app",
+        "message": "no meta at all"
+      }
+    },
+    {
+      "name": "2.x record passes through unchanged",
+      "parsed": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hi",
+        "meta": {},
+        "llm": {
+          "model": "m"
+        }
+      },
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hi",
+        "meta": {},
+        "llm": {
+          "model": "m"
+        }
+      }
+    },
+    {
+      "name": "unknown extra keys are kept",
+      "parsed": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "future_field": 1
+      },
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "future_field": 1
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "not an object",
+      "why": "a record is a JSON object",
+      "record": [
+        "a",
+        "list"
+      ]
+    },
+    {
+      "name": "missing message",
+      "why": "message is required",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "missing logger",
+      "why": "logger is required",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "level is not a level name",
+      "why": "level names are upper case",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "info",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "level is numeric",
+      "why": "level is the name",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": 20,
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "timestamp is a number",
+      "why": "timestamp is a string",
+      "record": {
+        "timestamp": 1767225600000,
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {
+          "user_id": 42
+        }
+      }
+    },
+    {
+      "name": "meta is a string",
+      "why": "meta is an object",
+      "record": {
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": "x"
+      }
+    },
+    {
+      "name": "llm is a string",
+      "why": "llm is an object",
+      "record": {
+        "schema_version": "2.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {},
+        "llm": "gpt"
+      }
+    },
+    {
+      "name": "schema_version from a newer major version",
+      "why": "written by a newer logquill; upgrade to read it",
+      "record": {
+        "schema_version": "3.0",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "schema_version is not a version string",
+      "why": "a string like '2.0'",
+      "record": {
+        "schema_version": "two",
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    },
+    {
+      "name": "schema_version is a number",
+      "why": "a string like '2.0'",
+      "record": {
+        "schema_version": 2,
+        "timestamp": "2026-01-01T00:00:00.000Z",
+        "level": "INFO",
+        "logger": "app",
+        "message": "hello",
+        "meta": {}
+      }
+    }
+  ]
+}

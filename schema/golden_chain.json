@@ -1,0 +1,74 @@
+[
+ {
+  "schema_version": "2.0",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "level": "INFO",
+  "logger": "app.ünï",
+  "message": "msg 0 ☃",
+  "meta": {
+   "b": 1,
+   "a": {
+    "z": [
+     1,
+     2,
+     {
+      "y": null,
+      "x": true
+     }
+    ],
+    "m": "é ☃ 𝄞 "
+   },
+   "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+   "hash": "dec1ee3d85d3232c953ce2d27ab9a65e6eb459333ead3d191b8ac7884d84bdce"
+  }
+ },
+ {
+  "schema_version": "2.0",
+  "timestamp": "2026-01-01T00:00:00.001Z",
+  "level": "INFO",
+  "logger": "app.ünï",
+  "message": "msg 1 ☃",
+  "meta": {
+   "quote": "say \"hi\"\\ back\nnl\ttab\r\u0000\u001f\b\f",
+   "cost": 2e-05,
+   "small": 1.5e-07,
+   "big": 123456.789,
+   "neg": -0.0001,
+   "frac": 0.1,
+   "prev_hash": "dec1ee3d85d3232c953ce2d27ab9a65e6eb459333ead3d191b8ac7884d84bdce",
+   "hash": "85fb195fae798f93db0d17ed915b6b26b72d974b3fb7d235f3a153db9c850216"
+  },
+  "llm": {
+   "model": "gpt-é",
+   "tokens_in": 10,
+   "cost_usd": 2e-05,
+   "latency_ms": 12.5
+  }
+ },
+ {
+  "schema_version": "2.0",
+  "timestamp": "2026-01-01T00:00:00.002Z",
+  "level": "INFO",
+  "logger": "app.ünï",
+  "message": "msg 2 ☃",
+  "meta": {
+   "empty_obj": {},
+   "empty_list": [],
+   "unicode_key_é": "v",
+   "tokens": 1234567890123,
+   "prev_hash": "85fb195fae798f93db0d17ed915b6b26b72d974b3fb7d235f3a153db9c850216",
+   "hash": "e67362b299ad1cfbd14bb6da93bc9370f8d87a2ff278c7eeafc421970280f9de"
+  }
+ },
+ {
+  "schema_version": "2.0",
+  "timestamp": "2026-01-01T00:00:00.003Z",
+  "level": "INFO",
+  "logger": "app.ünï",
+  "message": "msg 3 ☃",
+  "meta": {
+   "prev_hash": "e67362b299ad1cfbd14bb6da93bc9370f8d87a2ff278c7eeafc421970280f9de",
+   "hash": "6ec4d1c78db370a1f08c6142e351b4f8ba3c4eee58a8d37981ffdb5421a0c115"
+  }
+ }
+]

@@ -3,6 +3,7 @@ import type { LogRecord } from "../../../src/index.js";
 import { toEcsDocument } from "../../../src/transports/cloud/ecs-mapper.js";
 
 const record = (meta: Record<string, unknown>): LogRecord => ({
+  schema_version: "2.0",
   timestamp: "2026-01-01T00:00:00.000Z",
   level: "ERROR",
   logger: "app.api",
@@ -12,7 +13,9 @@ const record = (meta: Record<string, unknown>): LogRecord => ({
 
 describe("toEcsDocument", () => {
   it("adds the standard ECS fields alongside the record's own", () => {
-    const doc = toEcsDocument(record({ traceId: "t1", spanId: "s1", stack: "Error: x\n at f" }));
+    const doc = toEcsDocument(record({ trace_id: "t1", span_id: "s1", stack: "Error: x\n at f" }));
+    expect(doc["@timestamp"]).toBe("2026-01-01T00:00:00.000Z");
+    expect(doc.log).toEqual({ level: "error" });
     expect(doc).toMatchObject({
       "@timestamp": "2026-01-01T00:00:00.000Z",
       log: { level: "error" },

@@ -57,6 +57,11 @@ export class ElasticsearchTransport extends BatchingTransport {
 
   constructor(options: ElasticsearchTransportOptions) {
     super(options);
+    if (options.formatter) {
+      console.warn(
+        "ElasticsearchTransport: the `formatter` option is ignored — documents are always JSON with Elastic Common Schema fields added. Remove it, or use another transport to control the output format.",
+      );
+    }
     this.index = options.index ?? "logs";
     this.url = `${options.node.replace(/\/+$/, "")}/_bulk`;
     this.apiKey = options.apiKey;

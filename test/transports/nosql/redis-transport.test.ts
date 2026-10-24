@@ -33,7 +33,7 @@ describe("RedisTransport", () => {
     const transport = new RedisTransport({ client, stream: "custom-stream", maxRecords: 10 });
     const logger = new Logger("app.test", { transports: [transport] });
 
-    logger.info("only one", { runId: "run-1" });
+    logger.info("only one", { run_id: "run-1" });
     await logger.flush();
     transport.close();
 
@@ -44,7 +44,7 @@ describe("RedisTransport", () => {
     expect(fields.message).toBe("only one");
     expect(fields.logger).toBe("app.test");
     expect(fields.level).toBe("INFO");
-    expect(JSON.parse(fields.meta as string)).toEqual({ runId: "run-1" });
+    expect(JSON.parse(fields.meta as string)).toEqual({ run_id: "run-1" });
     expect(typeof fields.timestamp).toBe("string");
   });
 

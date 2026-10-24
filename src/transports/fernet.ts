@@ -26,7 +26,7 @@ function splitKey(key: string): { signing: Buffer; encryption: Buffer } {
   return { signing: raw.subarray(0, 16), encryption: raw.subarray(16) };
 }
 
-/** A fresh random key for {@link fernetEncrypt}, in the same format Python's `Fernet.generate_key()` produces. */
+/** A fresh random key for `fernetEncrypt`, in the same format Python's `Fernet.generate_key()` produces. */
 export function generateFernetKey(): string {
   return toFernetBase64(randomBytes(32));
 }
@@ -53,7 +53,7 @@ export function fernetEncrypt(key: string, plaintext: string): string {
   return toFernetBase64(Buffer.concat([body, mac]));
 }
 
-/** Decrypts a token produced by {@link fernetEncrypt} or Python's `Fernet.encrypt()`. Throws if the key is wrong or the token was altered. */
+/** Decrypts a token produced by `fernetEncrypt` or Python's `Fernet.encrypt()`. Throws if the key is wrong or the token was altered. */
 export function fernetDecrypt(key: string, token: string): string {
   const { signing, encryption } = splitKey(key);
   const data = Buffer.from(token.trim(), "base64url");

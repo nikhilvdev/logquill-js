@@ -19,6 +19,7 @@ async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
 }
 
 const record = (message: string, meta: Record<string, unknown> = {}): LogRecord => ({
+  schema_version: "2.0",
   timestamp: "2026-01-01T00:00:00.000Z",
   level: "INFO",
   logger: "app.api",
